@@ -4,7 +4,7 @@ import re
 import time
 from pathlib import Path
 
-from biorag.config import ProjectConfig
+from biorag.config import ProjectConfig, resolve_model_source
 from biorag.io import dump_jsonl
 from biorag.prompting import build_prompt
 from biorag.types import PredictionRecord, QuestionRecord, RetrievedContext
@@ -46,8 +46,12 @@ def _huggingface_generate(prompt: str, config: ProjectConfig, device: str) -> st
         from transformers import AutoModelForCausalLM, AutoTokenizer  # type: ignore
     except ModuleNotFoundError as error:
         raise RuntimeError("transformers and torch are required for generator backend.") from error
-    tokenizer = AutoTokenizer.from_pretrained(config.models.generator.model_name)
-    model = AutoModelForCausalLM.from_pretrained(config.models.generator.model_name)
+    model_source = resolve_model_source(
+        config.models.generator.model_name,
+        checkpoint_path=config.models.generator.checkpoint_path,
+    )
+    tokenizer = AutoTokenizer.from_pretrained(model_source)
+    model = AutoModelForCausalLM.from_pretrained(model_source)
     model.to(device)
     encoded = tokenizer(prompt, return_tensors="pt", truncation=True)
     encoded = {key: value.to(device) for key, value in encoded.items()}

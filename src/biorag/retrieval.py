@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from biorag.bioasq import build_training_pairs
-from biorag.config import ProjectConfig
+from biorag.config import ProjectConfig, resolve_model_source
 from biorag.io import dump_jsonl, load_jsonl, write_json
 from biorag.types import DocumentRecord, QuestionRecord, RetrievedContext, ScoredDocument
 from biorag.utils import batched, ensure_dir, get_logger, simple_tokenize
@@ -83,7 +83,11 @@ def build_index(
         raise ValueError(f"Unsupported retriever backend: {backend}")
     np = _numpy()
     torch, AutoModel, AutoTokenizer = _transformers()
-    source = model_source or config.models.retriever.model_name
+    source = resolve_model_source(
+        config.models.retriever.model_name,
+        checkpoint_path=config.models.retriever.checkpoint_path,
+        override_path=model_source,
+    )
     tokenizer = AutoTokenizer.from_pretrained(source)
     model = AutoModel.from_pretrained(source)
     model.to(device)
@@ -181,7 +185,11 @@ def retrieve_questions(
     index_path = Path(index_dir)
     docs, doc_ids, doc_embeddings = _load_transformer_assets(index_path)
     documents_by_id = {document.id: document for document in docs}
-    source = model_source or config.models.retriever.model_name
+    source = resolve_model_source(
+        config.models.retriever.model_name,
+        checkpoint_path=config.models.retriever.checkpoint_path,
+        override_path=model_source,
+    )
     tokenizer = AutoTokenizer.from_pretrained(source)
     model = AutoModel.from_pretrained(source)
     model.to(device)

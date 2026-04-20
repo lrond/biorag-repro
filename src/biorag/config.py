@@ -52,21 +52,27 @@ class DatasetConfig(BaseModel):
 
 
 class RetrieverConfig(BaseModel):
+    mode: str = "pretrained"
     backend: str = "transformer"
     model_name: str
+    checkpoint_path: str | None = None
     pooling: str = "cls"
     normalize: bool = True
     freeze: bool = False
 
 
 class RerankerConfig(BaseModel):
+    mode: str = "pretrained"
     backend: str = "cross_encoder"
     model_name: str
+    checkpoint_path: str | None = None
 
 
 class GeneratorConfig(BaseModel):
+    mode: str = "pretrained"
     backend: str = "huggingface"
     model_name: str
+    checkpoint_path: str | None = None
     max_new_tokens: int = 128
     do_sample: bool = False
     temperature: float = 0.0
@@ -189,3 +195,16 @@ def apply_runtime_overrides(
     if device is not None:
         payload["device"] = device
     return ProjectConfig.model_validate(payload)
+
+
+def resolve_model_source(
+    model_name: str,
+    *,
+    checkpoint_path: str | None = None,
+    override_path: str | None = None,
+) -> str:
+    if override_path:
+        return override_path
+    if checkpoint_path:
+        return checkpoint_path
+    return model_name

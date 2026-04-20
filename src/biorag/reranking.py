@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from biorag.config import ProjectConfig
+from biorag.config import ProjectConfig, resolve_model_source
 from biorag.io import dump_jsonl
 from biorag.types import QuestionRecord, RetrievedContext, ScoredDocument
 from biorag.utils import get_logger, simple_tokenize
@@ -61,7 +61,11 @@ def rerank_contexts(
         from sentence_transformers import CrossEncoder  # type: ignore
     except ModuleNotFoundError as error:
         raise RuntimeError("sentence-transformers is required for cross-encoder reranking.") from error
-    model = CrossEncoder(config.models.reranker.model_name, device=device)
+    model_source = resolve_model_source(
+        config.models.reranker.model_name,
+        checkpoint_path=config.models.reranker.checkpoint_path,
+    )
+    model = CrossEncoder(model_source, device=device)
     for context in contexts:
         question = questions_by_id[context.question_id]
         pairs = [(question.body, candidate.text) for candidate in context.candidates[: config.inference.rerank_top_k]]

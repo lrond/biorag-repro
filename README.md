@@ -76,6 +76,10 @@ By default the reproduction uses:
   - retriever: `microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext`
   - reranker: `cross-encoder/ms-marco-MiniLM-L-6-v2`
   - generator: `Qwen/Qwen2.5-7B-Instruct`
+- Each model block supports two execution modes:
+  - `mode: pretrained`: load directly from `model_name`
+  - `mode: finetuned`: keep the same base `model_name` but optionally load local weights from `checkpoint_path`
+- In `run-full-pipeline`, the retriever is trained first and then reused from the produced checkpoint automatically, so the repo covers both zero-shot and fine-tuned retriever paths out of the box.
 - Heavy dependencies are loaded lazily. This keeps toy tests fast while preserving a realistic cloud execution path.
 - Config files are valid YAML via JSON subset syntax so they can be parsed without an extra YAML dependency in toy environments.
 
