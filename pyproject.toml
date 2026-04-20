@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "biorag-repro"
 version = "0.1.0"
-description = "Reproducible BioRAG scaffold for BioASQ biomedical QA experiments."
+description = "Biomedical retrieval-augmented generation pipeline for BioASQ question answering."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
