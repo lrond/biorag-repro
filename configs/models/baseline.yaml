@@ -1,0 +1,20 @@
+{
+  "retriever": {
+    "backend": "transformer",
+    "model_name": "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext",
+    "pooling": "cls",
+    "normalize": true,
+    "freeze": true
+  },
+  "reranker": {
+    "backend": "disabled",
+    "model_name": "cross-encoder/ms-marco-MiniLM-L-6-v2"
+  },
+  "generator": {
+    "backend": "huggingface",
+    "model_name": "Qwen/Qwen2.5-7B-Instruct",
+    "max_new_tokens": 128,
+    "do_sample": false,
+    "temperature": 0.0
+  }
+}

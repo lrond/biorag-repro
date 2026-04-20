@@ -1,0 +1,23 @@
+{
+  "name": "bioasq12b_pubmed_dump",
+  "question_path": "data/raw/BioASQ-trainingDataset12b.json",
+  "sample_size": 500,
+  "sample_seed": 42,
+  "corpus_mode": "pubmed_dump",
+  "cache_dir": "data/interim/pubmed_cache",
+  "canonical_questions_path": "data/processed/questions.jsonl",
+  "sampled_questions_path": "data/interim/sampled_question_ids.json",
+  "linked_pubmed": {
+    "base_url": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils",
+    "tool": "biorag-repro",
+    "email_env": "NCBI_EMAIL",
+    "batch_size": 50,
+    "sleep_seconds": 0.34
+  },
+  "pubmed_dump": {
+    "input_path": "data/raw/pubmed_dump.jsonl",
+    "id_field": "pmid",
+    "title_field": "title",
+    "abstract_field": "abstract"
+  }
+}

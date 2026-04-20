@@ -1,0 +1,7 @@
+{
+  "compute_latency": true,
+  "compute_rouge_l": true,
+  "compute_bert_score": true,
+  "summary_table_name": "results_summary.md",
+  "report_name": "evaluation_report.json"
+}

@@ -1,0 +1,75 @@
+{
+  "questions": [
+    {
+      "id": "q_yes",
+      "type": "yesno",
+      "body": "Does aspirin reduce fever?",
+      "documents": ["1001"],
+      "snippets": [
+        {
+          "text": "Aspirin reduces fever and relieves mild pain in adults.",
+          "document": "1001",
+          "beginSection": "abstract",
+          "endSection": "abstract",
+          "offsetInBeginSection": 0,
+          "offsetInEndSection": 58
+        }
+      ],
+      "exact_answer": "yes",
+      "ideal_answer": ["Yes. Aspirin reduces fever and mild pain."]
+    },
+    {
+      "id": "q_fact",
+      "type": "factoid",
+      "body": "Which drug reduces fever in the study?",
+      "documents": ["1001"],
+      "snippets": [
+        {
+          "text": "Exact answer: aspirin. Aspirin reduces fever and relieves mild pain in adults.",
+          "document": "1001",
+          "beginSection": "abstract",
+          "endSection": "abstract",
+          "offsetInBeginSection": 0,
+          "offsetInEndSection": 80
+        }
+      ],
+      "exact_answer": ["aspirin", "acetylsalicylic acid"],
+      "ideal_answer": ["Aspirin was the drug reported to reduce fever in the study."]
+    },
+    {
+      "id": "q_list",
+      "type": "list",
+      "body": "Which vitamins are listed as antioxidants?",
+      "documents": ["1002"],
+      "snippets": [
+        {
+          "text": "- vitamin C\n- vitamin E\nThese vitamins were listed as antioxidants.",
+          "document": "1002",
+          "beginSection": "abstract",
+          "endSection": "abstract",
+          "offsetInBeginSection": 0,
+          "offsetInEndSection": 70
+        }
+      ],
+      "exact_answer": ["vitamin C", "vitamin E"],
+      "ideal_answer": ["Vitamin C and vitamin E were listed as antioxidants."]
+    },
+    {
+      "id": "q_summary",
+      "type": "summary",
+      "body": "Summarize how exercise influences gut hormones.",
+      "documents": ["1003"],
+      "snippets": [
+        {
+          "text": "Exercise influenced several gut hormones, although some studies reported mixed effects.",
+          "document": "1003",
+          "beginSection": "abstract",
+          "endSection": "abstract",
+          "offsetInBeginSection": 0,
+          "offsetInEndSection": 90
+        }
+      ],
+      "ideal_answer": ["Exercise can influence gut hormones, though effects may vary by study."]
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "defaults": {
+    "base": "base",
+    "dataset": "dataset/bioasq12b_linked_pubmed",
+    "models": "models/full_biorag",
+    "training": "training/full_biorag",
+    "inference": "inference/default",
+    "evaluation": "evaluation/default"
+  },
+  "overrides": {
+    "experiment": {
+      "name": "full_biorag",
+      "mode": "full_biorag"
+    },
+    "inference": {
+      "retrieve_top_k": 20,
+      "rerank_enabled": true,
+      "rerank_top_k": 20,
+      "final_top_k": 3
+    }
+  }
+}

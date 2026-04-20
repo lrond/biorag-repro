@@ -1,0 +1,12 @@
+{
+  "enabled": false,
+  "epochs": 0,
+  "learning_rate": 2e-05,
+  "batch_size": 16,
+  "max_length": 512,
+  "temperature": 0.05,
+  "rerank_batch_size": 32,
+  "gradient_accumulation_steps": 1,
+  "mixed_precision": "no",
+  "checkpoint_dir": "checkpoints/baseline"
+}
