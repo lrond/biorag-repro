@@ -1,5 +1,7 @@
 # BioRAG Reproduction Scaffold
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 `BioRAG` 的严格复现仓库骨架，默认对齐 `group2.pdf` 中描述的 BioASQ 12b 实验协议，不要求在当前机器直接跑通。
 
 ## What Is Included
@@ -91,8 +93,8 @@ By default the strict reproduction uses:
   - retriever: `microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext`
   - reranker: `cross-encoder/ms-marco-MiniLM-L-6-v2`
   - generator: `Qwen/Qwen2.5-7B-Instruct`
-- The default dataset preset is [configs/dataset/bioasq12b_report_strict.yaml](/Users/bowen/Downloads/nlp/configs/dataset/bioasq12b_report_strict.yaml), and both [configs/baseline.yaml](/Users/bowen/Downloads/nlp/configs/baseline.yaml) and [configs/full_biorag.yaml](/Users/bowen/Downloads/nlp/configs/full_biorag.yaml) now point to it.
-- If you want to evaluate against the official public `golden` batches instead of the report holdout split, switch to [configs/dataset/bioasq12b_golden_eval.yaml](/Users/bowen/Downloads/nlp/configs/dataset/bioasq12b_golden_eval.yaml).
+- The default dataset preset is [configs/dataset/bioasq12b_report_strict.yaml](configs/dataset/bioasq12b_report_strict.yaml), and both [configs/baseline.yaml](configs/baseline.yaml) and [configs/full_biorag.yaml](configs/full_biorag.yaml) now point to it.
+- If you want to evaluate against the official public `golden` batches instead of the report holdout split, switch to [configs/dataset/bioasq12b_golden_eval.yaml](configs/dataset/bioasq12b_golden_eval.yaml).
 - Each model block supports two execution modes:
   - `mode: pretrained`: load directly from `model_name`
   - `mode: finetuned`: keep the same base `model_name` but optionally load local weights from `checkpoint_path`
