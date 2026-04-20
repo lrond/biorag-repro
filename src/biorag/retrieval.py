@@ -78,7 +78,10 @@ def build_index(
             for document in documents
         ]
         dump_jsonl(index_dir / "lexical_index.jsonl", payload)
-        write_json(index_dir / "index_metadata.json", {"backend": backend, "document_count": len(documents)})
+        write_json(
+            index_dir / "index_metadata.json",
+            {"backend": backend, "document_count": len(documents)},
+        )
         return index_dir
     if backend != "transformer":
         raise ValueError(f"Unsupported retriever backend: {backend}")
@@ -107,7 +110,11 @@ def build_index(
             )
             encoded = {key: value.to(device) for key, value in encoded.items()}
             outputs = model(**encoded)
-            pooled = _pool_embeddings(outputs.last_hidden_state, encoded["attention_mask"], config.models.retriever.pooling)
+            pooled = _pool_embeddings(
+                outputs.last_hidden_state,
+                encoded["attention_mask"],
+                config.models.retriever.pooling,
+            )
             if config.models.retriever.normalize:
                 pooled = _normalize_matrix(pooled)
             embeddings.append(pooled.cpu().numpy())
@@ -130,7 +137,9 @@ def build_index(
 
 def _load_transformer_assets(index_dir: Path) -> tuple[list[DocumentRecord], list[str], Any]:
     np = _numpy()
-    documents = [DocumentRecord.model_validate(row) for row in load_jsonl(index_dir / "documents.jsonl")]
+    documents = [
+        DocumentRecord.model_validate(row) for row in load_jsonl(index_dir / "documents.jsonl")
+    ]
     ids = [document.id for document in documents]
     embeddings = np.load(index_dir / "embeddings.npy")
     return documents, ids, embeddings
@@ -181,7 +190,14 @@ def retrieve_questions(
             )
         average_latency = (time.perf_counter() - start) / max(len(questions), 1)
         contexts = [
-            context.model_copy(update={"metadata": {**context.metadata, "retrieval_latency_seconds": average_latency}})
+            context.model_copy(
+                update={
+                    "metadata": {
+                        **context.metadata,
+                        "retrieval_latency_seconds": average_latency,
+                    }
+                }
+            )
             for context in contexts
         ]
         return dump_jsonl(output_path, contexts)
@@ -214,7 +230,11 @@ def retrieve_questions(
             )
             encoded = {key: value.to(device) for key, value in encoded.items()}
             outputs = model(**encoded)
-            pooled = _pool_embeddings(outputs.last_hidden_state, encoded["attention_mask"], config.models.retriever.pooling)
+            pooled = _pool_embeddings(
+                outputs.last_hidden_state,
+                encoded["attention_mask"],
+                config.models.retriever.pooling,
+            )
             if config.models.retriever.normalize:
                 pooled = _normalize_matrix(pooled)
             question_embeddings.append(pooled.cpu().numpy())
@@ -301,8 +321,16 @@ def train_contrastive_retriever(
             encoded_d = {key: value.to(device) for key, value in encoded_d.items()}
             query_outputs = model(**encoded_q)
             doc_outputs = model(**encoded_d)
-            q_emb = _pool_embeddings(query_outputs.last_hidden_state, encoded_q["attention_mask"], config.models.retriever.pooling)
-            d_emb = _pool_embeddings(doc_outputs.last_hidden_state, encoded_d["attention_mask"], config.models.retriever.pooling)
+            q_emb = _pool_embeddings(
+                query_outputs.last_hidden_state,
+                encoded_q["attention_mask"],
+                config.models.retriever.pooling,
+            )
+            d_emb = _pool_embeddings(
+                doc_outputs.last_hidden_state,
+                encoded_d["attention_mask"],
+                config.models.retriever.pooling,
+            )
             if config.models.retriever.normalize:
                 q_emb = _normalize_matrix(q_emb)
                 d_emb = _normalize_matrix(d_emb)
@@ -314,9 +342,22 @@ def train_contrastive_retriever(
             optimizer.zero_grad()
             epoch_loss += float(loss.detach().cpu().item())
             step_count += 1
-        history.append({"epoch": epoch + 1, "loss": epoch_loss / max(step_count, 1)})
-        LOGGER.info("Retriever epoch %s/%s loss=%.4f", epoch + 1, config.training.epochs, history[-1]["loss"])
+        history.append(
+            {
+                "epoch": epoch + 1,
+                "loss": epoch_loss / max(step_count, 1),
+            }
+        )
+        LOGGER.info(
+            "Retriever epoch %s/%s loss=%.4f",
+            epoch + 1,
+            config.training.epochs,
+            history[-1]["loss"],
+        )
     model.save_pretrained(run_dir / "retriever")
     tokenizer.save_pretrained(run_dir / "retriever")
-    write_json(run_dir / "training_metrics.json", {"history": history, "pair_count": len(pairs)})
+    write_json(
+        run_dir / "training_metrics.json",
+        {"history": history, "pair_count": len(pairs)},
+    )
     return run_dir / "retriever"

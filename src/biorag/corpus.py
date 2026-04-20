@@ -26,8 +26,16 @@ def build_corpus_lookup(documents: list[DocumentRecord]) -> dict[str, DocumentRe
 def extract_linked_pmids(questions: list[QuestionRecord]) -> list[str]:
     pmids: set[str] = set()
     for question in questions:
-        pmids.update(extract_pmid(document_id) for document_id in question.documents if extract_pmid(document_id))
-        pmids.update(extract_pmid(snippet.document) for snippet in question.snippets if extract_pmid(snippet.document))
+        pmids.update(
+            extract_pmid(document_id)
+            for document_id in question.documents
+            if extract_pmid(document_id)
+        )
+        pmids.update(
+            extract_pmid(snippet.document)
+            for snippet in question.snippets
+            if extract_pmid(snippet.document)
+        )
     return sorted(pmids)
 
 
@@ -63,7 +71,8 @@ class PubMedClient:
         documents: list[DocumentRecord] = []
         for article in root.findall(".//PubmedArticle"):
             pmid = article.findtext(".//PMID", default="").strip()
-            title = "".join(article.find(".//ArticleTitle").itertext()).strip() if article.find(".//ArticleTitle") is not None else ""
+            article_title = article.find(".//ArticleTitle")
+            title = "".join(article_title.itertext()).strip() if article_title is not None else ""
             abstract_parts = []
             for node in article.findall(".//Abstract/AbstractText"):
                 text = "".join(node.itertext()).strip()
@@ -95,7 +104,9 @@ def build_linked_pubmed_corpus(
     for pmid in pmids:
         cache_path = cache_dir / f"{pmid}.json"
         if cache_path.exists():
-            cached_documents[pmid] = DocumentRecord.model_validate_json(cache_path.read_text(encoding="utf-8"))
+            cached_documents[pmid] = DocumentRecord.model_validate_json(
+                cache_path.read_text(encoding="utf-8")
+            )
     missing = [pmid for pmid in pmids if pmid not in cached_documents]
     if missing:
         client = PubMedClient(dataset_config)

@@ -5,7 +5,6 @@ from pathlib import Path
 
 from biorag.bioasq import parse_bioasq_questions
 
-
 FIXTURE = Path(__file__).parent / "fixtures" / "toy_bioasq.json"
 
 

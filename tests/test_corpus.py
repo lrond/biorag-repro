@@ -8,7 +8,6 @@ from biorag.bioasq import parse_bioasq_questions
 from biorag.config import DatasetConfig
 from biorag.corpus import build_pubmed_dump_corpus, load_corpus
 
-
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
 
@@ -30,8 +29,8 @@ class CorpusTests(unittest.TestCase):
                         "input_path": str(FIXTURE_DIR / "toy_pubmed_dump.jsonl"),
                         "id_field": "pmid",
                         "title_field": "title",
-                        "abstract_field": "abstract"
-                    }
+                        "abstract_field": "abstract",
+                    },
                 }
             )
             corpus_path, manifest_path = build_pubmed_dump_corpus(

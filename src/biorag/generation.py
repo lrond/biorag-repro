@@ -23,17 +23,27 @@ def _rule_based_generate(question: QuestionRecord, context: RetrievedContext) ->
         if " no " in f" {lower} " or "negative" in lower:
             return "No"
         return "I don't know."
-    explicit = re.search(r"(?:answer|exact answer)\s*[:\\-]\s*([^\n.;]+)", combined, re.IGNORECASE)
+    explicit = re.search(
+        r"(?:answer|exact answer)\s*[:\\-]\s*([^\n.;]+)",
+        combined,
+        re.IGNORECASE,
+    )
     if explicit:
         return explicit.group(1).strip()
     if question.type == "list":
         bullet_like = re.findall(r"(?:^|\n)[\-\*\d\.\)]\s*([^\n]+)", combined)
         if bullet_like:
             return "\n".join(item.strip() for item in bullet_like[:5])
-        sentences = [sentence.strip() for sentence in re.split(r"[.;]", combined) if sentence.strip()]
+        sentences = [
+            sentence.strip() for sentence in re.split(r"[.;]", combined) if sentence.strip()
+        ]
         return "\n".join(sentences[:3])
     if question.type == "summary":
-        sentences = [sentence.strip() for sentence in re.split(r"(?<=[.!?])\s+", combined) if sentence.strip()]
+        sentences = [
+            sentence.strip()
+            for sentence in re.split(r"(?<=[.!?])\s+", combined)
+            if sentence.strip()
+        ]
         return " ".join(sentences[:2]) if sentences else "I don't know."
     sentences = [sentence.strip() for sentence in re.split(r"[.;]", combined) if sentence.strip()]
     return sentences[0] if sentences else "I don't know."
@@ -86,11 +96,15 @@ def _run_huggingface_generation(
             temperature=config.models.generator.temperature,
         )
     full_text = tokenizer.decode(generated[0], skip_special_tokens=True)
-    answer = full_text[len(rendered) :].strip() if full_text.startswith(rendered) else full_text.strip()
+    answer = (
+        full_text[len(rendered) :].strip() if full_text.startswith(rendered) else full_text.strip()
+    )
     return answer
 
 
-def _postprocess_prediction(question: QuestionRecord, raw_answer: str) -> tuple[str, list[str], bool]:
+def _postprocess_prediction(
+    question: QuestionRecord, raw_answer: str
+) -> tuple[str, list[str], bool]:
     answer = raw_answer.strip() or "I don't know."
     normalized = normalize_text(answer)
     abstained = "i dont know" in normalized or normalized == "unknown"
@@ -101,17 +115,15 @@ def _postprocess_prediction(question: QuestionRecord, raw_answer: str) -> tuple[
             return "No", [], False
         return "I don't know.", [], True
     if question.type in {"factoid", "list"}:
-        parts = [
-            part.strip(" -\t")
-            for part in re.split(r"[\n,;]", answer)
-            if part.strip(" -\t")
-        ]
+        parts = [part.strip(" -\t") for part in re.split(r"[\n,;]", answer) if part.strip(" -\t")]
         primary = parts[0] if parts else "I don't know."
         return primary, parts, abstained
     return answer, [], abstained
 
 
-def _should_abstain(question: QuestionRecord, context: RetrievedContext, config: ProjectConfig) -> bool:
+def _should_abstain(
+    question: QuestionRecord, context: RetrievedContext, config: ProjectConfig
+) -> bool:
     if not config.inference.abstain_when_empty:
         return False
     if not context.candidates:
@@ -142,7 +154,9 @@ def generate_predictions(
             raw_answer = _rule_based_generate(question, context)
         else:
             assert generator_state is not None
-            raw_answer = _run_huggingface_generation(prompt, generator_state[0], generator_state[1], config, device)
+            raw_answer = _run_huggingface_generation(
+                prompt, generator_state[0], generator_state[1], config, device
+            )
         generation_latency = time.perf_counter() - start
         upstream_latency = float(context.metadata.get("retrieval_latency_seconds", 0.0)) + float(
             context.metadata.get("rerank_latency_seconds", 0.0)
@@ -160,7 +174,9 @@ def generate_predictions(
                 prompt_excerpt=prompt[:500],
                 metadata={
                     "generation_latency_seconds": generation_latency,
-                    "retrieval_latency_seconds": context.metadata.get("retrieval_latency_seconds", 0.0),
+                    "retrieval_latency_seconds": context.metadata.get(
+                        "retrieval_latency_seconds", 0.0
+                    ),
                     "rerank_latency_seconds": context.metadata.get("rerank_latency_seconds", 0.0),
                 },
             )

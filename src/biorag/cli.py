@@ -19,16 +19,35 @@ from biorag.pipeline import (
 )
 from biorag.utils import configure_logging, set_global_seed
 
-
 CommandFn = Callable[[object], dict]
 
 
 def _add_shared_arguments(subparser: argparse.ArgumentParser) -> None:
-    subparser.add_argument("--config", required=True, help="Path to layered experiment config.")
-    subparser.add_argument("--input-dir", default=None, help="Root input directory override.")
-    subparser.add_argument("--output-dir", default=None, help="Root output directory override.")
-    subparser.add_argument("--run-name", default=None, help="Logical run name for output artifacts.")
-    subparser.add_argument("--device", default=None, help="Execution device, e.g. cpu, cuda, mps.")
+    subparser.add_argument(
+        "--config",
+        required=True,
+        help="Path to layered experiment config.",
+    )
+    subparser.add_argument(
+        "--input-dir",
+        default=None,
+        help="Root input directory override.",
+    )
+    subparser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Root output directory override.",
+    )
+    subparser.add_argument(
+        "--run-name",
+        default=None,
+        help="Logical run name for output artifacts.",
+    )
+    subparser.add_argument(
+        "--device",
+        default=None,
+        help="Execution device, e.g. cpu, cuda, mps.",
+    )
 
 
 def _build_parser() -> argparse.ArgumentParser:

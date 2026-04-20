@@ -167,7 +167,15 @@ def load_project_config(config_path: str | Path) -> ProjectConfig:
     if defaults:
         base_ref = defaults.get("base")
         if base_ref:
-            merged = deep_merge(merged, _load_yaml_subset(_resolve_config_reference(config_root, base_ref)))
+            merged = deep_merge(
+                merged,
+                _load_yaml_subset(
+                    _resolve_config_reference(
+                        config_root,
+                        base_ref,
+                    )
+                ),
+            )
         for section_name in ("dataset", "models", "training", "inference", "evaluation"):
             reference = defaults.get(section_name)
             if reference:

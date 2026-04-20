@@ -89,9 +89,21 @@ def write_report_comparison(
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Render paper-style BioRAG comparison tables.")
-    parser.add_argument("--baseline-report", required=True, help="Path to the baseline evaluation report JSON.")
-    parser.add_argument("--ours-report", required=True, help="Path to the BioRAG evaluation report JSON.")
-    parser.add_argument("--output-dir", required=True, help="Directory to write the comparison artifacts into.")
+    parser.add_argument(
+        "--baseline-report",
+        required=True,
+        help="Path to the baseline evaluation report JSON.",
+    )
+    parser.add_argument(
+        "--ours-report",
+        required=True,
+        help="Path to the BioRAG evaluation report JSON.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        required=True,
+        help="Directory to write the comparison artifacts into.",
+    )
     return parser
 
 

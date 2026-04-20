@@ -56,7 +56,9 @@ def materialize_question_splits(
     )
     golden_questions = _dedupe_questions(_load_question_source(config.dataset.golden))
     if not training_questions:
-        raise ValueError("No BioASQ training questions were resolved from the configured dataset source.")
+        raise ValueError(
+            "No BioASQ training questions were resolved from the configured dataset source."
+        )
 
     notes: list[str] = []
     if protocol == "single_file":
@@ -70,7 +72,8 @@ def materialize_question_splits(
     elif protocol == "report_holdout":
         if config.dataset.sample_size >= len(training_questions):
             raise ValueError(
-                "The report_holdout protocol requires sample_size to be smaller than the number of training questions."
+                "The report_holdout protocol requires sample_size "
+                "to be smaller than the number of training questions."
             )
         all_questions = list(training_questions)
         evaluation_questions = stratified_sample_questions(
@@ -79,10 +82,15 @@ def materialize_question_splits(
             seed=config.dataset.sample_seed,
         )
         evaluation_ids = {question.id for question in evaluation_questions}
-        train_questions = [question for question in training_questions if question.id not in evaluation_ids]
+        train_questions = [
+            question for question in training_questions if question.id not in evaluation_ids
+        ]
         notes.append(
-            "Evaluation split follows the report protocol: a stratified random holdout from BioASQ-training12b "
-            f"(N={len(evaluation_questions)}, seed={config.dataset.sample_seed}) with zero question overlap."
+            "Evaluation split follows the report protocol: "
+            "a stratified random holdout from BioASQ-training12b "
+            f"(N={len(evaluation_questions)}, "
+            f"seed={config.dataset.sample_seed}) "
+            "with zero question overlap."
         )
     elif protocol == "golden_eval":
         if not golden_questions:
@@ -91,7 +99,9 @@ def materialize_question_splits(
         evaluation_questions = list(golden_questions)
         all_questions = _dedupe_questions(training_questions + golden_questions)
         notes.append(
-            "Evaluation split uses the official BioASQ 12b golden-enriched batches while training uses BioASQ-training12b."
+            "Evaluation split uses the official BioASQ 12b "
+            "golden-enriched batches while training uses "
+            "BioASQ-training12b."
         )
     else:
         raise ValueError(f"Unsupported dataset protocol: {protocol}")
@@ -107,7 +117,10 @@ def materialize_question_splits(
         "sampled": evaluation_path,
     }
     if golden_questions:
-        artifacts["golden"] = dump_jsonl(output_root / "golden_questions.jsonl", golden_questions)
+        artifacts["golden"] = dump_jsonl(
+            output_root / "golden_questions.jsonl",
+            golden_questions,
+        )
     manifest = {
         "protocol": protocol,
         "seed": config.dataset.sample_seed,

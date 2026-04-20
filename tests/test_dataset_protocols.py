@@ -11,7 +11,6 @@ from biorag.config import ProjectConfig
 from biorag.datasets import materialize_question_splits
 from biorag.io import load_jsonl, read_json
 
-
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
 

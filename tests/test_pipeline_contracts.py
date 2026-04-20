@@ -7,7 +7,6 @@ from pathlib import Path
 from biorag.config import ProjectConfig
 from biorag.pipeline import build_corpus_stage, build_index_stage, generate_stage, retrieve_stage
 
-
 FIXTURE_DIR = Path(__file__).parent / "fixtures"
 
 
@@ -19,7 +18,7 @@ def make_toy_config(tmpdir: str) -> ProjectConfig:
             "paths": {
                 "cache_dir": str(Path(tmpdir) / "cache"),
                 "artifact_dir": str(Path(tmpdir) / "outputs"),
-                "processed_dir": str(Path(tmpdir) / "processed")
+                "processed_dir": str(Path(tmpdir) / "processed"),
             },
             "dataset": {
                 "name": "toy",
@@ -34,8 +33,8 @@ def make_toy_config(tmpdir: str) -> ProjectConfig:
                     "input_path": str(FIXTURE_DIR / "toy_pubmed_dump.jsonl"),
                     "id_field": "pmid",
                     "title_field": "title",
-                    "abstract_field": "abstract"
-                }
+                    "abstract_field": "abstract",
+                },
             },
             "models": {
                 "retriever": {
@@ -43,19 +42,16 @@ def make_toy_config(tmpdir: str) -> ProjectConfig:
                     "model_name": "toy-lexical",
                     "pooling": "cls",
                     "normalize": True,
-                    "freeze": True
+                    "freeze": True,
                 },
-                "reranker": {
-                    "backend": "lexical",
-                    "model_name": "toy-reranker"
-                },
+                "reranker": {"backend": "lexical", "model_name": "toy-reranker"},
                 "generator": {
                     "backend": "rule_based",
                     "model_name": "toy-generator",
                     "max_new_tokens": 64,
                     "do_sample": False,
-                    "temperature": 0.0
-                }
+                    "temperature": 0.0,
+                },
             },
             "training": {
                 "enabled": False,
@@ -67,7 +63,7 @@ def make_toy_config(tmpdir: str) -> ProjectConfig:
                 "rerank_batch_size": 4,
                 "gradient_accumulation_steps": 1,
                 "mixed_precision": "no",
-                "checkpoint_dir": str(Path(tmpdir) / "checkpoints")
+                "checkpoint_dir": str(Path(tmpdir) / "checkpoints"),
             },
             "inference": {
                 "retrieve_top_k": 3,
@@ -77,19 +73,19 @@ def make_toy_config(tmpdir: str) -> ProjectConfig:
                 "abstain_when_empty": True,
                 "abstain_threshold": 0.05,
                 "max_prompt_characters": 2000,
-                "greedy_decoding": True
+                "greedy_decoding": True,
             },
             "evaluation": {
                 "compute_latency": True,
                 "compute_rouge_l": True,
                 "compute_bert_score": False,
                 "summary_table_name": "results_summary.md",
-                "report_name": "evaluation_report.json"
+                "report_name": "evaluation_report.json",
             },
             "input_dir": str(FIXTURE_DIR),
             "output_dir": str(Path(tmpdir) / "outputs"),
             "run_name": "toy-run",
-            "device": "cpu"
+            "device": "cpu",
         }
     )
 
