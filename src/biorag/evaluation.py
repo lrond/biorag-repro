@@ -21,10 +21,15 @@ def _dedupe_preserving_order(values: list[str]) -> list[str]:
     return ordered
 
 
-def _macro_f1(gold: list[str], pred: list[str]) -> float:
-    labels = sorted(set(gold) | set(pred))
+def _macro_f1(
+    gold: list[str],
+    pred: list[str],
+    *,
+    labels: list[str] | None = None,
+) -> float:
+    active_labels = labels or sorted(set(gold) | set(pred))
     f1s = []
-    for label in labels:
+    for label in active_labels:
         tp = sum(1 for g, p in zip(gold, pred) if g == label and p == label)
         fp = sum(1 for g, p in zip(gold, pred) if g != label and p == label)
         fn = sum(1 for g, p in zip(gold, pred) if g == label and p != label)
@@ -194,7 +199,11 @@ def evaluate_predictions(
             f1 = (2 * precision * recall / (precision + recall)) if precision + recall else 0.0
             overall_metrics[f"yesno_f1_{label}"] = f1
             per_type_metrics["yesno"][f"f1_{label}"] = f1
-        overall_metrics["yesno_macro_f1"] = _macro_f1(yesno_gold, yesno_pred)
+        overall_metrics["yesno_macro_f1"] = _macro_f1(
+            yesno_gold,
+            yesno_pred,
+            labels=["yes", "no"],
+        )
         per_type_metrics["yesno"]["accuracy"] = overall_metrics["yesno_accuracy"]
         per_type_metrics["yesno"]["macro_f1"] = overall_metrics["yesno_macro_f1"]
     if factoid_sacc:

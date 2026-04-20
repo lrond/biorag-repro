@@ -5,7 +5,7 @@ from pathlib import Path
 
 from biorag.config import ProjectConfig, resolve_model_source
 from biorag.io import dump_jsonl
-from biorag.types import QuestionRecord, RetrievedContext, ScoredDocument
+from biorag.types import QuestionRecord, RetrievedContext
 from biorag.utils import get_logger, simple_tokenize
 
 LOGGER = get_logger(__name__)
@@ -87,7 +87,14 @@ def rerank_contexts(
             (question.body, candidate.text)
             for candidate in context.candidates[: config.inference.rerank_top_k]
         ]
-        scores = model.predict(pairs) if pairs else []
+        scores = (
+            model.predict(
+                pairs,
+                batch_size=config.training.rerank_batch_size,
+            )
+            if pairs
+            else []
+        )
         rescored = []
         for candidate, score in zip(context.candidates[: config.inference.rerank_top_k], scores):
             rescored.append(candidate.model_copy(update={"score": float(score)}))
@@ -105,7 +112,7 @@ def rerank_contexts(
                     "rerank_latency_seconds": time.perf_counter() - start,
                 },
                 candidates=[
-                    ScoredDocument(**candidate.model_dump(mode="python"), rank=index + 1)
+                    candidate.model_copy(update={"rank": index + 1})
                     for index, candidate in enumerate(ranked)
                 ],
             )
