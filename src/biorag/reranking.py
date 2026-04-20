@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 from biorag.config import ProjectConfig, resolve_model_source
@@ -27,7 +28,13 @@ def rerank_contexts(
 ) -> Path:
     if not config.inference.rerank_enabled or config.models.reranker.backend == "disabled":
         passthrough = [
-            context.model_copy(update={"stage": "rerank_skipped", "candidates": context.candidates[: config.inference.final_top_k]})
+            context.model_copy(
+                update={
+                    "stage": "rerank_skipped",
+                    "candidates": context.candidates[: config.inference.final_top_k],
+                    "metadata": {**context.metadata, "rerank_latency_seconds": 0.0},
+                }
+            )
             for context in contexts
         ]
         return dump_jsonl(output_path, passthrough)
@@ -36,6 +43,7 @@ def rerank_contexts(
     reranked: list[RetrievedContext] = []
     if reranker_backend == "lexical":
         for context in contexts:
+            start = time.perf_counter()
             question = questions_by_id[context.question_id]
             ranked = sorted(
                 context.candidates[: config.inference.rerank_top_k],
@@ -48,6 +56,7 @@ def rerank_contexts(
                     question_type=context.question_type,
                     question=context.question,
                     stage="reranked",
+                    metadata={**context.metadata, "rerank_latency_seconds": time.perf_counter() - start},
                     candidates=[
                         candidate.model_copy(update={"rank": index + 1})
                         for index, candidate in enumerate(ranked)
@@ -67,6 +76,7 @@ def rerank_contexts(
     )
     model = CrossEncoder(model_source, device=device)
     for context in contexts:
+        start = time.perf_counter()
         question = questions_by_id[context.question_id]
         pairs = [(question.body, candidate.text) for candidate in context.candidates[: config.inference.rerank_top_k]]
         scores = model.predict(pairs) if pairs else []
@@ -80,6 +90,7 @@ def rerank_contexts(
                 question_type=context.question_type,
                 question=context.question,
                 stage="reranked",
+                metadata={**context.metadata, "rerank_latency_seconds": time.perf_counter() - start},
                 candidates=[
                     ScoredDocument(**candidate.model_dump(mode="python"), rank=index + 1)
                     for index, candidate in enumerate(ranked)

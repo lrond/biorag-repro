@@ -32,6 +32,7 @@ dev = [
 
 [project.scripts]
 biorag = "biorag.cli:main"
+biorag-report = "biorag.reporting:main"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

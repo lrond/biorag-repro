@@ -10,7 +10,7 @@ from pathlib import Path
 from biorag.config import DatasetConfig
 from biorag.io import dump_jsonl, load_jsonl, write_json
 from biorag.types import DocumentRecord, QuestionRecord
-from biorag.utils import chunked_iterable, ensure_dir, get_logger
+from biorag.utils import chunked_iterable, ensure_dir, extract_pmid, get_logger
 
 LOGGER = get_logger(__name__)
 
@@ -26,8 +26,8 @@ def build_corpus_lookup(documents: list[DocumentRecord]) -> dict[str, DocumentRe
 def extract_linked_pmids(questions: list[QuestionRecord]) -> list[str]:
     pmids: set[str] = set()
     for question in questions:
-        pmids.update(document_id for document_id in question.documents if document_id)
-        pmids.update(snippet.document for snippet in question.snippets if snippet.document)
+        pmids.update(extract_pmid(document_id) for document_id in question.documents if extract_pmid(document_id))
+        pmids.update(extract_pmid(snippet.document) for snippet in question.snippets if extract_pmid(snippet.document))
     return sorted(pmids)
 
 

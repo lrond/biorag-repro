@@ -1,7 +1,7 @@
 {
   "defaults": {
     "base": "base",
-    "dataset": "dataset/bioasq12b_linked_pubmed",
+    "dataset": "dataset/bioasq12b_report_strict",
     "models": "models/full_biorag",
     "training": "training/full_biorag",
     "inference": "inference/default",

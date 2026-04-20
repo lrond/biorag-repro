@@ -16,6 +16,10 @@ data/interim/*
 data/processed/*
 !data/processed/.gitkeep
 outputs/
+BioASQ-training12b.zip
+Task12BGoldenEnriched.zip
+BioASQ-training12b/
+Task12BGoldenEnriched/
 
 checkpoints/
 logs/

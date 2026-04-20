@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import fnmatch
 import json
 from pathlib import Path
 from typing import Any
+from zipfile import ZipFile
 
 from biorag.types import QuestionRecord, SnippetRecord, TripleRecord
+from biorag.utils import extract_pmid
 
 
 def _as_string_list(value: Any) -> list[str]:
@@ -54,7 +57,7 @@ def _normalize_snippets(raw_snippets: list[dict[str, Any]] | None) -> list[Snipp
         snippets.append(
             SnippetRecord(
                 text=snippet.get("text", ""),
-                document=snippet.get("document", ""),
+                document=extract_pmid(snippet.get("document", "")),
                 begin_section=snippet.get("beginSection", ""),
                 end_section=snippet.get("endSection", ""),
                 offset_in_begin_section=int(snippet.get("offsetInBeginSection", 0) or 0),
@@ -77,25 +80,61 @@ def _normalize_triples(raw_triples: list[dict[str, Any]] | None) -> list[TripleR
     return triples
 
 
-def parse_bioasq_questions(path: str | Path) -> list[QuestionRecord]:
-    with Path(path).open("r", encoding="utf-8") as handle:
-        payload = json.load(handle)
-    records: list[QuestionRecord] = []
-    for raw in payload.get("questions", []):
-        records.append(
-            QuestionRecord(
-                id=str(raw.get("id", "")).strip(),
-                type=str(raw.get("type", "")).strip().lower(),
-                body=str(raw.get("body", "")).strip(),
-                documents=_as_string_list(raw.get("documents")),
-                concepts=_as_string_list(raw.get("concepts")),
-                exact_answer=normalize_exact_answer(raw.get("type", ""), raw.get("exact_answer")),
-                ideal_answer=_as_string_list(raw.get("ideal_answer")),
-                triples=_normalize_triples(raw.get("triples")),
-                snippets=_normalize_snippets(raw.get("snippets")),
-                metadata={"source_path": str(path)},
+def _iter_bioasq_payloads(
+    path: str | Path,
+    *,
+    member_names: list[str] | None = None,
+    member_glob: str = "*.json",
+) -> list[tuple[str, dict[str, Any]]]:
+    source_path = Path(path)
+    if source_path.suffix.lower() == ".zip":
+        with ZipFile(source_path) as archive:
+            members = member_names or sorted(
+                member
+                for member in archive.namelist()
+                if fnmatch.fnmatch(member, member_glob) and member.lower().endswith(".json")
             )
-        )
+            return [
+                (member, json.loads(archive.read(member).decode("utf-8")))
+                for member in members
+            ]
+    if source_path.is_dir():
+        members = member_names or [str(candidate.relative_to(source_path)) for candidate in sorted(source_path.glob(member_glob))]
+        return [
+            (member, json.loads((source_path / member).read_text(encoding="utf-8")))
+            for member in members
+        ]
+    return [(source_path.name, json.loads(source_path.read_text(encoding="utf-8")))]
+
+
+def parse_bioasq_questions(
+    path: str | Path,
+    *,
+    member_names: list[str] | None = None,
+    member_glob: str = "*.json",
+) -> list[QuestionRecord]:
+    records: list[QuestionRecord] = []
+    for member_name, payload in _iter_bioasq_payloads(path, member_names=member_names, member_glob=member_glob):
+        for raw in payload.get("questions", []):
+            raw_documents = _as_string_list(raw.get("documents"))
+            records.append(
+                QuestionRecord(
+                    id=str(raw.get("id", "")).strip(),
+                    type=str(raw.get("type", "")).strip().lower(),
+                    body=str(raw.get("body", "")).strip(),
+                    documents=[extract_pmid(document_id) for document_id in raw_documents if extract_pmid(document_id)],
+                    concepts=_as_string_list(raw.get("concepts")),
+                    exact_answer=normalize_exact_answer(raw.get("type", ""), raw.get("exact_answer")),
+                    ideal_answer=_as_string_list(raw.get("ideal_answer")),
+                    triples=_normalize_triples(raw.get("triples")),
+                    snippets=_normalize_snippets(raw.get("snippets")),
+                    metadata={
+                        "source_path": str(path),
+                        "source_member": member_name,
+                        "raw_documents": raw_documents,
+                    },
+                )
+            )
     return records
 
 
@@ -106,9 +145,9 @@ def build_training_pairs(
     pairs: list[tuple[str, str, str, str]] = []
     seen: set[tuple[str, str]] = set()
     for question in questions:
-        candidate_doc_ids = list(question.documents)
+        candidate_doc_ids = [extract_pmid(document_id) for document_id in question.documents if extract_pmid(document_id)]
         if not candidate_doc_ids:
-            candidate_doc_ids = [snippet.document for snippet in question.snippets if snippet.document]
+            candidate_doc_ids = [extract_pmid(snippet.document) for snippet in question.snippets if extract_pmid(snippet.document)]
         for document_id in candidate_doc_ids:
             if document_id not in corpus_by_id:
                 continue

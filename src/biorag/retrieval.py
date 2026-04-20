@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import time
 from pathlib import Path
 from typing import Any
 
@@ -130,8 +131,7 @@ def build_index(
 def _load_transformer_assets(index_dir: Path) -> tuple[list[DocumentRecord], list[str], Any]:
     np = _numpy()
     documents = [DocumentRecord.model_validate(row) for row in load_jsonl(index_dir / "documents.jsonl")]
-    doc_ids = load_jsonl(index_dir / "documents.jsonl")
-    ids = [row["id"] for row in doc_ids]
+    ids = [document.id for document in documents]
     embeddings = np.load(index_dir / "embeddings.npy")
     return documents, ids, embeddings
 
@@ -149,6 +149,7 @@ def retrieve_questions(
     documents_by_id = {document.id: document for document in documents}
     contexts: list[RetrievedContext] = []
     if backend == "lexical":
+        start = time.perf_counter()
         tokenized_docs = {document.id: document.text for document in documents}
         for question in questions:
             ranked = sorted(
@@ -165,6 +166,7 @@ def retrieve_questions(
                     question_type=question.type,
                     question=question.body,
                     stage="retrieval",
+                    metadata={},
                     candidates=[
                         ScoredDocument(
                             document_id=document_id,
@@ -177,6 +179,11 @@ def retrieve_questions(
                     ],
                 )
             )
+        average_latency = (time.perf_counter() - start) / max(len(questions), 1)
+        contexts = [
+            context.model_copy(update={"metadata": {**context.metadata, "retrieval_latency_seconds": average_latency}})
+            for context in contexts
+        ]
         return dump_jsonl(output_path, contexts)
     if backend != "transformer":
         raise ValueError(f"Unsupported retriever backend: {backend}")
@@ -194,6 +201,7 @@ def retrieve_questions(
     model = AutoModel.from_pretrained(source)
     model.to(device)
     model.eval()
+    start = time.perf_counter()
     question_embeddings = []
     with torch.no_grad():
         for batch in batched(questions, config.training.batch_size):
@@ -212,6 +220,7 @@ def retrieve_questions(
             question_embeddings.append(pooled.cpu().numpy())
     queries = np.concatenate(question_embeddings, axis=0)
     scores = queries @ doc_embeddings.T
+    average_latency = (time.perf_counter() - start) / max(len(questions), 1)
     for row_index, question in enumerate(questions):
         ranking = scores[row_index].argsort()[::-1][: config.inference.retrieve_top_k]
         candidates = []
@@ -233,6 +242,7 @@ def retrieve_questions(
                 question_type=question.type,
                 question=question.body,
                 stage="retrieval",
+                metadata={"retrieval_latency_seconds": average_latency},
                 candidates=candidates,
             )
         )

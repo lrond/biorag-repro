@@ -4,6 +4,7 @@ import hashlib
 import logging
 import random
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Sequence, TypeVar
 
@@ -19,6 +20,24 @@ def configure_logging(level: str = "INFO") -> None:
         level=getattr(logging, level.upper(), logging.INFO),
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     )
+
+
+def set_global_seed(seed: int) -> None:
+    random.seed(seed)
+    try:
+        import numpy as np  # type: ignore
+
+        np.random.seed(seed)
+    except ModuleNotFoundError:
+        pass
+    try:
+        import torch  # type: ignore
+
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+    except ModuleNotFoundError:
+        pass
 
 
 def ensure_dir(path: str | Path) -> Path:
@@ -55,8 +74,23 @@ def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]
     return merged
 
 
+_GREEK_NORMALIZATION = str.maketrans(
+    {
+        "α": " alpha ",
+        "β": " beta ",
+        "γ": " gamma ",
+        "δ": " delta ",
+        "κ": " kappa ",
+        "λ": " lambda ",
+        "μ": " mu ",
+        "ω": " omega ",
+    }
+)
+
+
 def normalize_text(text: str) -> str:
-    lowered = text.lower().strip()
+    lowered = unicodedata.normalize("NFKD", text).translate(_GREEK_NORMALIZATION).lower().strip()
+    lowered = lowered.encode("ascii", "ignore").decode("ascii")
     lowered = re.sub(r"\s+", " ", lowered)
     lowered = re.sub(r"[^a-z0-9\s\-]", "", lowered)
     return lowered.strip()
@@ -64,6 +98,23 @@ def normalize_text(text: str) -> str:
 
 def simple_tokenize(text: str) -> list[str]:
     return [token for token in re.findall(r"[a-z0-9]+", text.lower()) if token]
+
+
+def extract_pmid(reference: str) -> str:
+    text = str(reference).strip()
+    if not text:
+        return ""
+    if text.isdigit():
+        return text
+    for pattern in (
+        r"(?:pubmed|pmid)[/: ]+(\d+)",
+        r"pubmed\.ncbi\.nlm\.nih\.gov/(\d+)",
+        r"/(\d+)(?:[/?#].*)?$",
+    ):
+        match = re.search(pattern, text, flags=re.IGNORECASE)
+        if match:
+            return match.group(1)
+    return text
 
 
 def stable_hash(text: str) -> str:

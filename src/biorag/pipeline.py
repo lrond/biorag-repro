@@ -2,20 +2,18 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from biorag.bioasq import parse_bioasq_questions
 from biorag.config import ProjectConfig
 from biorag.corpus import (
-    build_corpus_lookup,
     build_linked_pubmed_corpus,
     build_pubmed_dump_corpus,
     load_corpus,
 )
+from biorag.datasets import materialize_question_splits
 from biorag.evaluation import evaluate_predictions
 from biorag.generation import generate_predictions
-from biorag.io import dump_jsonl, load_jsonl, write_json
+from biorag.io import load_jsonl, write_json
 from biorag.reranking import rerank_contexts
 from biorag.retrieval import build_index, retrieve_questions, train_contrastive_retriever
-from biorag.sampling import stratified_sample_questions
 from biorag.types import PredictionRecord, QuestionRecord, RetrievedContext
 from biorag.utils import ensure_dir
 
@@ -29,39 +27,14 @@ def save_config_snapshot(config: ProjectConfig) -> Path:
     return write_json(run_root / "resolved_config.json", config.model_dump(mode="json"))
 
 
-def _question_input_path(config: ProjectConfig) -> Path:
-    path = Path(config.dataset.question_path)
-    if path.is_absolute():
-        return path
-    return Path.cwd() / path
-
-
 def prepare_data(config: ProjectConfig) -> dict[str, Path]:
-    run_root = _run_root(config)
-    canonical_dir = ensure_dir(run_root / "canonical")
-    questions = parse_bioasq_questions(_question_input_path(config))
-    sampled = stratified_sample_questions(
-        questions,
-        sample_size=config.dataset.sample_size,
-        seed=config.dataset.sample_seed,
-    )
-    canonical_path = dump_jsonl(canonical_dir / "questions.jsonl", questions)
-    sampled_path = dump_jsonl(canonical_dir / "sampled_questions.jsonl", sampled)
-    sample_manifest = write_json(
-        canonical_dir / "sample_manifest.json",
-        {
-            "sample_size": len(sampled),
-            "seed": config.dataset.sample_seed,
-            "question_ids": [question.id for question in sampled],
-        },
-    )
-    return {"canonical": canonical_path, "sampled": sampled_path, "manifest": sample_manifest}
+    return materialize_question_splits(config, _run_root(config) / "canonical")
 
 
 def build_corpus_stage(config: ProjectConfig) -> dict[str, Path]:
     run_root = _run_root(config)
     canonical_paths = prepare_data(config)
-    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(canonical_paths["canonical"])]
+    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(canonical_paths["all"])]
     corpus_dir = ensure_dir(run_root / "corpus")
     corpus_path = corpus_dir / "corpus.jsonl"
     if config.dataset.corpus_mode == "linked_pubmed":
@@ -85,7 +58,7 @@ def build_index_stage(config: ProjectConfig, model_source: str | None = None) ->
 def train_retriever_stage(config: ProjectConfig) -> dict[str, Path]:
     run_root = _run_root(config)
     corpus_paths = build_corpus_stage(config)
-    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(corpus_paths["canonical"])]
+    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(corpus_paths["train"])]
     documents = load_corpus(corpus_paths["corpus"])
     training_dir = ensure_dir(run_root / "training")
     model_path = train_contrastive_retriever(questions, documents, config, training_dir, device=config.device)
@@ -96,7 +69,7 @@ def retrieve_stage(config: ProjectConfig, model_source: str | None = None) -> di
     run_root = _run_root(config)
     index_paths = build_index_stage(config, model_source=model_source)
     documents = load_corpus(index_paths["corpus"])
-    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(index_paths["sampled"])]
+    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(index_paths["evaluation"])]
     retrieval_dir = ensure_dir(run_root / "retrieval")
     output_path = retrieve_questions(
         questions,
@@ -113,7 +86,7 @@ def retrieve_stage(config: ProjectConfig, model_source: str | None = None) -> di
 def rerank_stage(config: ProjectConfig) -> dict[str, Path]:
     run_root = _run_root(config)
     retrieval_paths = retrieve_stage(config)
-    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(retrieval_paths["sampled"])]
+    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(retrieval_paths["evaluation"])]
     contexts = [RetrievedContext.model_validate(row) for row in load_jsonl(retrieval_paths["retrieved"])]
     rerank_dir = ensure_dir(run_root / "rerank")
     output_path = rerank_contexts(
@@ -134,7 +107,7 @@ def generate_stage(config: ProjectConfig) -> dict[str, Path]:
     else:
         stage_paths = retrieve_stage(config)
         context_path = stage_paths["retrieved"]
-    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(stage_paths["sampled"])]
+    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(stage_paths["evaluation"])]
     contexts = [RetrievedContext.model_validate(row) for row in load_jsonl(context_path)]
     prediction_dir = ensure_dir(run_root / "predictions")
     output_path = generate_predictions(
@@ -150,7 +123,7 @@ def generate_stage(config: ProjectConfig) -> dict[str, Path]:
 def evaluate_stage(config: ProjectConfig) -> dict[str, Path]:
     run_root = _run_root(config)
     generation_paths = generate_stage(config)
-    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(generation_paths["sampled"])]
+    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(generation_paths["evaluation"])]
     predictions = [PredictionRecord.model_validate(row) for row in load_jsonl(generation_paths["predictions"])]
     evaluation_dir = ensure_dir(run_root / "evaluation")
     report_path, summary_path, report = evaluate_predictions(questions, predictions, config, evaluation_dir)
@@ -177,7 +150,7 @@ def run_full_pipeline(config: ProjectConfig) -> dict[str, Path]:
     training_paths = train_retriever_stage(config)
     trained_model = training_paths["model"]
     index_paths = build_index_stage(config, model_source=str(trained_model))
-    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(index_paths["sampled"])]
+    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(index_paths["evaluation"])]
     documents = load_corpus(index_paths["corpus"])
     retrieval_dir = ensure_dir(_run_root(config) / "retrieval")
     retrieved_path = retrieve_questions(

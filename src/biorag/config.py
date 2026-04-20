@@ -38,15 +38,24 @@ class DatasetModeConfig(BaseModel):
     abstract_field: str = "abstract"
 
 
+class QuestionSourceConfig(BaseModel):
+    path: str = ""
+    member_names: list[str] = Field(default_factory=list)
+    member_glob: str = "*.json"
+
+
 class DatasetConfig(BaseModel):
     name: str
-    question_path: str
+    question_path: str = ""
+    protocol: str = "single_file"
     sample_size: int = 500
     sample_seed: int = 42
     corpus_mode: str = "linked_pubmed"
     cache_dir: str = "data/interim/pubmed_cache"
     canonical_questions_path: str = "data/processed/questions.jsonl"
     sampled_questions_path: str = "data/interim/sampled_question_ids.json"
+    training: QuestionSourceConfig = Field(default_factory=QuestionSourceConfig)
+    golden: QuestionSourceConfig = Field(default_factory=QuestionSourceConfig)
     linked_pubmed: DatasetModeConfig = Field(default_factory=DatasetModeConfig)
     pubmed_dump: DatasetModeConfig = Field(default_factory=DatasetModeConfig)
 
@@ -182,11 +191,18 @@ def apply_runtime_overrides(
     payload = config.model_dump(mode="python")
     if input_dir is not None:
         payload["input_dir"] = input_dir
-        question_path = Path(payload["dataset"]["question_path"])
-        if not question_path.is_absolute():
+        raw_question_path = payload["dataset"]["question_path"]
+        question_path = Path(raw_question_path)
+        if raw_question_path and not question_path.is_absolute():
             payload["dataset"]["question_path"] = str(Path(input_dir) / question_path.name)
-        dump_path = Path(payload["dataset"]["pubmed_dump"]["input_path"])
-        if dump_path and not dump_path.is_absolute():
+        for key in ("training", "golden"):
+            raw_source_path = payload["dataset"][key]["path"]
+            source_path = Path(raw_source_path)
+            if raw_source_path and not source_path.is_absolute():
+                payload["dataset"][key]["path"] = str(Path(input_dir) / source_path.name)
+        raw_dump_path = payload["dataset"]["pubmed_dump"]["input_path"]
+        dump_path = Path(raw_dump_path)
+        if raw_dump_path and not dump_path.is_absolute():
             payload["dataset"]["pubmed_dump"]["input_path"] = str(Path(input_dir) / dump_path.name)
     if output_dir is not None:
         payload["output_dir"] = output_dir

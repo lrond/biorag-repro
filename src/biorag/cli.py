@@ -17,7 +17,7 @@ from biorag.pipeline import (
     save_config_snapshot,
     train_retriever_stage,
 )
-from biorag.utils import configure_logging
+from biorag.utils import configure_logging, set_global_seed
 
 
 CommandFn = Callable[[object], dict]
@@ -78,6 +78,7 @@ def main(argv: list[str] | None = None) -> None:
         device=args.device or "cpu",
     )
     configure_logging(config.runtime.log_level)
+    set_global_seed(config.runtime.seed)
     save_config_snapshot(config)
     handler = _dispatch(args.command)
     handler(config)
