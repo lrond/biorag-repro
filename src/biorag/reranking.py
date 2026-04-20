@@ -56,7 +56,10 @@ def rerank_contexts(
                     question_type=context.question_type,
                     question=context.question,
                     stage="reranked",
-                    metadata={**context.metadata, "rerank_latency_seconds": time.perf_counter() - start},
+                    metadata={
+                        **context.metadata,
+                        "rerank_latency_seconds": time.perf_counter() - start,
+                    },
                     candidates=[
                         candidate.model_copy(update={"rank": index + 1})
                         for index, candidate in enumerate(ranked)
@@ -69,7 +72,9 @@ def rerank_contexts(
     try:
         from sentence_transformers import CrossEncoder  # type: ignore
     except ModuleNotFoundError as error:
-        raise RuntimeError("sentence-transformers is required for cross-encoder reranking.") from error
+        raise RuntimeError(
+            "sentence-transformers is required for cross-encoder reranking."
+        ) from error
     model_source = resolve_model_source(
         config.models.reranker.model_name,
         checkpoint_path=config.models.reranker.checkpoint_path,
@@ -78,19 +83,27 @@ def rerank_contexts(
     for context in contexts:
         start = time.perf_counter()
         question = questions_by_id[context.question_id]
-        pairs = [(question.body, candidate.text) for candidate in context.candidates[: config.inference.rerank_top_k]]
+        pairs = [
+            (question.body, candidate.text)
+            for candidate in context.candidates[: config.inference.rerank_top_k]
+        ]
         scores = model.predict(pairs) if pairs else []
         rescored = []
         for candidate, score in zip(context.candidates[: config.inference.rerank_top_k], scores):
             rescored.append(candidate.model_copy(update={"score": float(score)}))
-        ranked = sorted(rescored, key=lambda candidate: candidate.score, reverse=True)[: config.inference.final_top_k]
+        ranked = sorted(rescored, key=lambda candidate: candidate.score, reverse=True)[
+            : config.inference.final_top_k
+        ]
         reranked.append(
             RetrievedContext(
                 question_id=context.question_id,
                 question_type=context.question_type,
                 question=context.question,
                 stage="reranked",
-                metadata={**context.metadata, "rerank_latency_seconds": time.perf_counter() - start},
+                metadata={
+                    **context.metadata,
+                    "rerank_latency_seconds": time.perf_counter() - start,
+                },
                 candidates=[
                     ScoredDocument(**candidate.model_dump(mode="python"), rank=index + 1)
                     for index, candidate in enumerate(ranked)

@@ -38,9 +38,13 @@ def build_corpus_stage(config: ProjectConfig) -> dict[str, Path]:
     corpus_dir = ensure_dir(run_root / "corpus")
     corpus_path = corpus_dir / "corpus.jsonl"
     if config.dataset.corpus_mode == "linked_pubmed":
-        output_path, manifest_path = build_linked_pubmed_corpus(questions, config.dataset, corpus_path)
+        output_path, manifest_path = build_linked_pubmed_corpus(
+            questions, config.dataset, corpus_path
+        )
     elif config.dataset.corpus_mode == "pubmed_dump":
-        output_path, manifest_path = build_pubmed_dump_corpus(questions, config.dataset, corpus_path)
+        output_path, manifest_path = build_pubmed_dump_corpus(
+            questions, config.dataset, corpus_path
+        )
     else:
         raise ValueError(f"Unsupported corpus mode: {config.dataset.corpus_mode}")
     return {"corpus": output_path, "manifest": manifest_path, **canonical_paths}
@@ -61,7 +65,9 @@ def train_retriever_stage(config: ProjectConfig) -> dict[str, Path]:
     questions = [QuestionRecord.model_validate(row) for row in load_jsonl(corpus_paths["train"])]
     documents = load_corpus(corpus_paths["corpus"])
     training_dir = ensure_dir(run_root / "training")
-    model_path = train_contrastive_retriever(questions, documents, config, training_dir, device=config.device)
+    model_path = train_contrastive_retriever(
+        questions, documents, config, training_dir, device=config.device
+    )
     return {"model": Path(model_path), **corpus_paths}
 
 
@@ -69,7 +75,9 @@ def retrieve_stage(config: ProjectConfig, model_source: str | None = None) -> di
     run_root = _run_root(config)
     index_paths = build_index_stage(config, model_source=model_source)
     documents = load_corpus(index_paths["corpus"])
-    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(index_paths["evaluation"])]
+    questions = [
+        QuestionRecord.model_validate(row) for row in load_jsonl(index_paths["evaluation"])
+    ]
     retrieval_dir = ensure_dir(run_root / "retrieval")
     output_path = retrieve_questions(
         questions,
@@ -86,8 +94,12 @@ def retrieve_stage(config: ProjectConfig, model_source: str | None = None) -> di
 def rerank_stage(config: ProjectConfig) -> dict[str, Path]:
     run_root = _run_root(config)
     retrieval_paths = retrieve_stage(config)
-    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(retrieval_paths["evaluation"])]
-    contexts = [RetrievedContext.model_validate(row) for row in load_jsonl(retrieval_paths["retrieved"])]
+    questions = [
+        QuestionRecord.model_validate(row) for row in load_jsonl(retrieval_paths["evaluation"])
+    ]
+    contexts = [
+        RetrievedContext.model_validate(row) for row in load_jsonl(retrieval_paths["retrieved"])
+    ]
     rerank_dir = ensure_dir(run_root / "rerank")
     output_path = rerank_contexts(
         questions,
@@ -107,7 +119,9 @@ def generate_stage(config: ProjectConfig) -> dict[str, Path]:
     else:
         stage_paths = retrieve_stage(config)
         context_path = stage_paths["retrieved"]
-    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(stage_paths["evaluation"])]
+    questions = [
+        QuestionRecord.model_validate(row) for row in load_jsonl(stage_paths["evaluation"])
+    ]
     contexts = [RetrievedContext.model_validate(row) for row in load_jsonl(context_path)]
     prediction_dir = ensure_dir(run_root / "predictions")
     output_path = generate_predictions(
@@ -123,10 +137,16 @@ def generate_stage(config: ProjectConfig) -> dict[str, Path]:
 def evaluate_stage(config: ProjectConfig) -> dict[str, Path]:
     run_root = _run_root(config)
     generation_paths = generate_stage(config)
-    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(generation_paths["evaluation"])]
-    predictions = [PredictionRecord.model_validate(row) for row in load_jsonl(generation_paths["predictions"])]
+    questions = [
+        QuestionRecord.model_validate(row) for row in load_jsonl(generation_paths["evaluation"])
+    ]
+    predictions = [
+        PredictionRecord.model_validate(row) for row in load_jsonl(generation_paths["predictions"])
+    ]
     evaluation_dir = ensure_dir(run_root / "evaluation")
-    report_path, summary_path, report = evaluate_predictions(questions, predictions, config, evaluation_dir)
+    report_path, summary_path, report = evaluate_predictions(
+        questions, predictions, config, evaluation_dir
+    )
     artifacts = {
         "report": report_path,
         "summary": summary_path,
@@ -140,7 +160,9 @@ def evaluate_stage(config: ProjectConfig) -> dict[str, Path]:
 def run_baseline(config: ProjectConfig) -> dict[str, Path]:
     config = config.model_copy(
         update={
-            "inference": config.inference.model_copy(update={"rerank_enabled": False, "retrieve_top_k": 3, "final_top_k": 3})
+            "inference": config.inference.model_copy(
+                update={"rerank_enabled": False, "retrieve_top_k": 3, "final_top_k": 3}
+            )
         }
     )
     return evaluate_stage(config)
@@ -150,7 +172,9 @@ def run_full_pipeline(config: ProjectConfig) -> dict[str, Path]:
     training_paths = train_retriever_stage(config)
     trained_model = training_paths["model"]
     index_paths = build_index_stage(config, model_source=str(trained_model))
-    questions = [QuestionRecord.model_validate(row) for row in load_jsonl(index_paths["evaluation"])]
+    questions = [
+        QuestionRecord.model_validate(row) for row in load_jsonl(index_paths["evaluation"])
+    ]
     documents = load_corpus(index_paths["corpus"])
     retrieval_dir = ensure_dir(_run_root(config) / "retrieval")
     retrieved_path = retrieve_questions(
@@ -182,7 +206,9 @@ def run_full_pipeline(config: ProjectConfig) -> dict[str, Path]:
     )
     predictions = [PredictionRecord.model_validate(row) for row in load_jsonl(prediction_path)]
     evaluation_dir = ensure_dir(_run_root(config) / "evaluation")
-    report_path, summary_path, report = evaluate_predictions(questions, predictions, config, evaluation_dir)
+    report_path, summary_path, report = evaluate_predictions(
+        questions, predictions, config, evaluation_dir
+    )
     report_payload = report.model_dump(mode="json")
     report_payload["artifacts"] = {
         "trained_model": str(trained_model),

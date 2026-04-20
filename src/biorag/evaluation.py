@@ -131,16 +131,27 @@ def evaluate_predictions(
         if prediction.latency_seconds is not None:
             latencies.append(prediction.latency_seconds)
         if question.type == "yesno":
-            gold = question.exact_answer[0][0] if question.exact_answer and question.exact_answer[0] else "unknown"
+            gold = (
+                question.exact_answer[0][0]
+                if question.exact_answer and question.exact_answer[0]
+                else "unknown"
+            )
             yesno_gold.append(normalize_text(gold))
             yesno_pred.append(normalize_text(prediction.answer))
         elif question.type == "factoid":
             gold_groups = _normalize_gold_groups(question.exact_answer)
             ranked = _dedupe_preserving_order(
-                [normalize_text(item) for item in (prediction.ranked_answers or [prediction.answer])]
+                [
+                    normalize_text(item)
+                    for item in (prediction.ranked_answers or [prediction.answer])
+                ]
             )[:5]
             strict_hit = 1.0 if ranked and any(ranked[0] in group for group in gold_groups) else 0.0
-            lenient_hit = 1.0 if any(any(candidate in group for group in gold_groups) for candidate in ranked) else 0.0
+            lenient_hit = (
+                1.0
+                if any(any(candidate in group for group in gold_groups) for candidate in ranked)
+                else 0.0
+            )
             reciprocal_rank = 0.0
             for rank, candidate in enumerate(ranked, start=1):
                 if any(candidate in group for group in gold_groups):
@@ -152,11 +163,15 @@ def evaluate_predictions(
         elif question.type == "list":
             gold_groups = _normalize_gold_groups(question.exact_answer)
             ranked_predictions = prediction.ranked_answers or [prediction.answer]
-            pred_flat = _dedupe_preserving_order([normalize_text(item) for item in ranked_predictions if item.strip()])
+            pred_flat = _dedupe_preserving_order(
+                [normalize_text(item) for item in ranked_predictions if item.strip()]
+            )
             true_positive, matched_groups = _match_groups(pred_flat, gold_groups)
             recall = matched_groups / len(gold_groups) if gold_groups else 0.0
             precision = true_positive / len(pred_flat) if pred_flat else 0.0
-            f_measure = (2 * precision * recall / (precision + recall)) if precision + recall else 0.0
+            f_measure = (
+                (2 * precision * recall / (precision + recall)) if precision + recall else 0.0
+            )
             list_precision.append(precision)
             list_recall.append(recall)
             list_fmeasure.append(f_measure)
@@ -167,7 +182,9 @@ def evaluate_predictions(
             bert_references.append(ideal_reference)
 
     if yesno_gold:
-        overall_metrics["yesno_accuracy"] = sum(g == p for g, p in zip(yesno_gold, yesno_pred)) / len(yesno_gold)
+        overall_metrics["yesno_accuracy"] = sum(
+            g == p for g, p in zip(yesno_gold, yesno_pred)
+        ) / len(yesno_gold)
         for label in ("yes", "no"):
             tp = sum(1 for g, p in zip(yesno_gold, yesno_pred) if g == label and p == label)
             fp = sum(1 for g, p in zip(yesno_gold, yesno_pred) if g != label and p == label)
@@ -185,7 +202,9 @@ def evaluate_predictions(
         overall_metrics["factoid_lenient_accuracy"] = _mean(factoid_lenient)
         overall_metrics["factoid_mrr"] = _mean(factoid_mrr)
         per_type_metrics["factoid"]["strict_accuracy"] = overall_metrics["factoid_strict_accuracy"]
-        per_type_metrics["factoid"]["lenient_accuracy"] = overall_metrics["factoid_lenient_accuracy"]
+        per_type_metrics["factoid"]["lenient_accuracy"] = overall_metrics[
+            "factoid_lenient_accuracy"
+        ]
         per_type_metrics["factoid"]["mrr"] = overall_metrics["factoid_mrr"]
     if list_recall:
         overall_metrics["list_mean_precision"] = _mean(list_precision)
@@ -211,8 +230,12 @@ def evaluate_predictions(
         notes=notes,
     )
     output_root = Path(output_dir)
-    report_path = write_json(output_root / config.evaluation.report_name, report.model_dump(mode="json"))
-    summary_path = write_text(output_root / config.evaluation.summary_table_name, render_summary_table(report))
+    report_path = write_json(
+        output_root / config.evaluation.report_name, report.model_dump(mode="json")
+    )
+    summary_path = write_text(
+        output_root / config.evaluation.summary_table_name, render_summary_table(report)
+    )
     return report_path, summary_path, report
 
 
