@@ -60,6 +60,24 @@ biorag quickstart \
   --device cuda
 ```
 
+## RTX 5090 / 24GB 显卡说明
+
+默认预设已经按单张 24GB RTX 5090 级别显卡做了收敛：
+
+- Qwen2.5-7B-Instruct 默认以 `bfloat16` 和低 CPU 内存方式加载。
+- `full` 预设下 retriever 微调使用 BF16 mixed precision。
+- 默认启用 CUDA TF32 matmul，适合 Ampere/Ada/Blackwell 级别 GPU。
+
+复现报告对齐实验时可以直接运行：
+
+```bash
+biorag quickstart --profile baseline --device cuda
+biorag quickstart --profile full --device cuda
+```
+
+如果长 prompt 或本机其他进程仍造成显存压力，可以在当前配置中降低
+`models.generator.max_new_tokens` 或 `inference.max_prompt_characters`。
+
 ## 主要入口
 
 大多数情况下，你只需要记住这几个命令：

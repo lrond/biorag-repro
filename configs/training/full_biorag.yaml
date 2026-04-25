@@ -7,6 +7,6 @@
   "temperature": 0.05,
   "rerank_batch_size": 32,
   "gradient_accumulation_steps": 1,
-  "mixed_precision": "no",
+  "mixed_precision": "bf16",
   "checkpoint_dir": "checkpoints/full_biorag"
 }

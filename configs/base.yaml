@@ -6,7 +6,10 @@
   "runtime": {
     "seed": 42,
     "num_workers": 0,
-    "log_level": "INFO"
+    "log_level": "INFO",
+    "allow_tf32": true,
+    "matmul_precision": "high",
+    "cuda_allocator_conf": "expandable_segments:True"
   },
   "paths": {
     "cache_dir": "data/interim",

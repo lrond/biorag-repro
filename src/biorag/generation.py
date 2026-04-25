@@ -7,6 +7,7 @@ from typing import Any
 
 from biorag.config import ProjectConfig, resolve_model_source
 from biorag.io import dump_jsonl
+from biorag.modeling import model_load_kwargs
 from biorag.prompting import build_prompt
 from biorag.types import PredictionRecord, QuestionRecord, RetrievedContext
 from biorag.utils import normalize_text
@@ -51,6 +52,7 @@ def _rule_based_generate(question: QuestionRecord, context: RetrievedContext) ->
 
 def _load_huggingface_generator(config: ProjectConfig, device: str) -> tuple[Any, Any]:
     try:
+        import torch  # type: ignore
         from transformers import AutoModelForCausalLM, AutoTokenizer  # type: ignore
     except ModuleNotFoundError as error:
         raise RuntimeError("transformers and torch are required for generator backend.") from error
@@ -61,7 +63,10 @@ def _load_huggingface_generator(config: ProjectConfig, device: str) -> tuple[Any
     tokenizer = AutoTokenizer.from_pretrained(model_source)
     if tokenizer.pad_token is None and tokenizer.eos_token is not None:
         tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained(model_source)
+    model = AutoModelForCausalLM.from_pretrained(
+        model_source,
+        **model_load_kwargs(config.models.generator, torch),
+    )
     model.to(device)
     model.eval()
     return tokenizer, model

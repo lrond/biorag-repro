@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import os
 import random
 import re
 import unicodedata
@@ -20,6 +21,22 @@ def configure_logging(level: str = "INFO") -> None:
         level=getattr(logging, level.upper(), logging.INFO),
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     )
+
+
+def configure_torch_runtime(runtime_config: Any) -> None:
+    allocator_conf = getattr(runtime_config, "cuda_allocator_conf", "")
+    if allocator_conf:
+        os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", allocator_conf)
+    try:
+        import torch  # type: ignore
+    except ModuleNotFoundError:
+        return
+    if getattr(runtime_config, "allow_tf32", False) and torch.cuda.is_available():
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+    matmul_precision = getattr(runtime_config, "matmul_precision", "")
+    if matmul_precision and hasattr(torch, "set_float32_matmul_precision"):
+        torch.set_float32_matmul_precision(matmul_precision)
 
 
 def set_global_seed(seed: int) -> None:

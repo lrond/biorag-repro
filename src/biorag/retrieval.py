@@ -8,6 +8,7 @@ from typing import Any
 from biorag.bioasq import build_training_pairs
 from biorag.config import ProjectConfig, resolve_model_source
 from biorag.io import dump_jsonl, load_jsonl, write_json
+from biorag.modeling import autocast_dtype, model_load_kwargs
 from biorag.types import DocumentRecord, QuestionRecord, RetrievedContext, ScoredDocument
 from biorag.utils import batched, ensure_dir, get_logger, simple_tokenize
 
@@ -47,6 +48,10 @@ def _pool_embeddings(last_hidden_state: Any, attention_mask: Any, pooling: str) 
 def _normalize_matrix(matrix: Any) -> Any:
     torch, _, _ = _transformers()
     return torch.nn.functional.normalize(matrix, p=2, dim=1)
+
+
+def _use_cuda_autocast(device: str, dtype: Any) -> bool:
+    return dtype is not None and str(device).split(":")[0] == "cuda"
 
 
 def _lexical_score(query: str, document: str) -> float:
@@ -93,11 +98,16 @@ def build_index(
         override_path=model_source,
     )
     tokenizer = AutoTokenizer.from_pretrained(source)
-    model = AutoModel.from_pretrained(source)
+    model = AutoModel.from_pretrained(
+        source,
+        **model_load_kwargs(config.models.retriever, torch),
+    )
     model.to(device)
     model.eval()
     embeddings = []
     doc_ids = []
+    amp_dtype = autocast_dtype(config.training.mixed_precision, torch)
+    use_amp = _use_cuda_autocast(device, amp_dtype)
     with torch.no_grad():
         for batch in batched(documents, config.training.batch_size):
             texts = [document.text for document in batch]
@@ -109,15 +119,16 @@ def build_index(
                 return_tensors="pt",
             )
             encoded = {key: value.to(device) for key, value in encoded.items()}
-            outputs = model(**encoded)
-            pooled = _pool_embeddings(
-                outputs.last_hidden_state,
-                encoded["attention_mask"],
-                config.models.retriever.pooling,
-            )
-            if config.models.retriever.normalize:
-                pooled = _normalize_matrix(pooled)
-            embeddings.append(pooled.cpu().numpy())
+            with torch.autocast(device_type="cuda", dtype=amp_dtype, enabled=use_amp):
+                outputs = model(**encoded)
+                pooled = _pool_embeddings(
+                    outputs.last_hidden_state,
+                    encoded["attention_mask"],
+                    config.models.retriever.pooling,
+                )
+                if config.models.retriever.normalize:
+                    pooled = _normalize_matrix(pooled)
+            embeddings.append(pooled.float().cpu().numpy())
             doc_ids.extend(document.id for document in batch)
     stacked = np.concatenate(embeddings, axis=0)
     np.save(index_dir / "embeddings.npy", stacked)
@@ -214,11 +225,16 @@ def retrieve_questions(
         override_path=model_source,
     )
     tokenizer = AutoTokenizer.from_pretrained(source)
-    model = AutoModel.from_pretrained(source)
+    model = AutoModel.from_pretrained(
+        source,
+        **model_load_kwargs(config.models.retriever, torch),
+    )
     model.to(device)
     model.eval()
     start = time.perf_counter()
     question_embeddings = []
+    amp_dtype = autocast_dtype(config.training.mixed_precision, torch)
+    use_amp = _use_cuda_autocast(device, amp_dtype)
     with torch.no_grad():
         for batch in batched(questions, config.training.batch_size):
             encoded = tokenizer(
@@ -229,15 +245,16 @@ def retrieve_questions(
                 return_tensors="pt",
             )
             encoded = {key: value.to(device) for key, value in encoded.items()}
-            outputs = model(**encoded)
-            pooled = _pool_embeddings(
-                outputs.last_hidden_state,
-                encoded["attention_mask"],
-                config.models.retriever.pooling,
-            )
-            if config.models.retriever.normalize:
-                pooled = _normalize_matrix(pooled)
-            question_embeddings.append(pooled.cpu().numpy())
+            with torch.autocast(device_type="cuda", dtype=amp_dtype, enabled=use_amp):
+                outputs = model(**encoded)
+                pooled = _pool_embeddings(
+                    outputs.last_hidden_state,
+                    encoded["attention_mask"],
+                    config.models.retriever.pooling,
+                )
+                if config.models.retriever.normalize:
+                    pooled = _normalize_matrix(pooled)
+            question_embeddings.append(pooled.float().cpu().numpy())
     queries = np.concatenate(question_embeddings, axis=0)
     scores = queries @ doc_embeddings.T
     average_latency = (time.perf_counter() - start) / max(len(questions), 1)
@@ -292,10 +309,16 @@ def train_contrastive_retriever(
     if not pairs:
         raise ValueError("No training pairs could be built from the provided questions and corpus.")
     tokenizer = AutoTokenizer.from_pretrained(config.models.retriever.model_name)
-    model = AutoModel.from_pretrained(config.models.retriever.model_name)
+    model = AutoModel.from_pretrained(
+        config.models.retriever.model_name,
+        **model_load_kwargs(config.models.retriever, torch),
+    )
     model.to(device)
     model.train()
     optimizer = torch.optim.AdamW(model.parameters(), lr=config.training.learning_rate)
+    amp_dtype = autocast_dtype(config.training.mixed_precision, torch)
+    use_amp = _use_cuda_autocast(device, amp_dtype)
+    scaler = torch.cuda.amp.GradScaler(enabled=use_amp and amp_dtype == torch.float16)
     history: list[dict[str, float | int]] = []
     for epoch in range(config.training.epochs):
         epoch_loss = 0.0
@@ -319,27 +342,33 @@ def train_contrastive_retriever(
             )
             encoded_q = {key: value.to(device) for key, value in encoded_q.items()}
             encoded_d = {key: value.to(device) for key, value in encoded_d.items()}
-            query_outputs = model(**encoded_q)
-            doc_outputs = model(**encoded_d)
-            q_emb = _pool_embeddings(
-                query_outputs.last_hidden_state,
-                encoded_q["attention_mask"],
-                config.models.retriever.pooling,
-            )
-            d_emb = _pool_embeddings(
-                doc_outputs.last_hidden_state,
-                encoded_d["attention_mask"],
-                config.models.retriever.pooling,
-            )
-            if config.models.retriever.normalize:
-                q_emb = _normalize_matrix(q_emb)
-                d_emb = _normalize_matrix(d_emb)
-            logits = q_emb @ d_emb.T / config.training.temperature
-            labels = torch.arange(logits.shape[0], device=device)
-            loss = torch.nn.functional.cross_entropy(logits, labels)
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
+            with torch.autocast(device_type="cuda", dtype=amp_dtype, enabled=use_amp):
+                query_outputs = model(**encoded_q)
+                doc_outputs = model(**encoded_d)
+                q_emb = _pool_embeddings(
+                    query_outputs.last_hidden_state,
+                    encoded_q["attention_mask"],
+                    config.models.retriever.pooling,
+                )
+                d_emb = _pool_embeddings(
+                    doc_outputs.last_hidden_state,
+                    encoded_d["attention_mask"],
+                    config.models.retriever.pooling,
+                )
+                if config.models.retriever.normalize:
+                    q_emb = _normalize_matrix(q_emb)
+                    d_emb = _normalize_matrix(d_emb)
+                logits = q_emb @ d_emb.T / config.training.temperature
+                labels = torch.arange(logits.shape[0], device=device)
+                loss = torch.nn.functional.cross_entropy(logits, labels)
+            if scaler.is_enabled():
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss.backward()
+                optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
             epoch_loss += float(loss.detach().cpu().item())
             step_count += 1
         history.append(

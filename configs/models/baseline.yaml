@@ -6,7 +6,10 @@
     "checkpoint_path": null,
     "pooling": "cls",
     "normalize": true,
-    "freeze": true
+    "freeze": true,
+    "torch_dtype": "default",
+    "low_cpu_mem_usage": false,
+    "attn_implementation": null
   },
   "reranker": {
     "mode": "pretrained",
@@ -21,6 +24,9 @@
     "checkpoint_path": null,
     "max_new_tokens": 128,
     "do_sample": false,
-    "temperature": 0.0
+    "temperature": 0.0,
+    "torch_dtype": "bfloat16",
+    "low_cpu_mem_usage": true,
+    "attn_implementation": null
   }
 }

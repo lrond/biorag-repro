@@ -61,6 +61,25 @@ biorag quickstart \
   --device cuda
 ```
 
+## RTX 5090 / 24GB GPU Notes
+
+The default presets are tuned to fit a single 24GB RTX 5090-class GPU:
+
+- Qwen2.5-7B-Instruct loads in `bfloat16` with low-CPU-memory loading.
+- Retriever fine-tuning uses BF16 mixed precision in the full preset.
+- CUDA TF32 matmul is enabled for faster Ampere/Ada/Blackwell-class GPUs.
+
+For the report-aligned experiment, use:
+
+```bash
+biorag quickstart --profile baseline --device cuda
+biorag quickstart --profile full --device cuda
+```
+
+If you still see memory pressure from long prompts or other local processes,
+reduce `models.generator.max_new_tokens` or `inference.max_prompt_characters`
+in the active config.
+
 ## Main Entry Points
 
 For most users, these are the only commands you need:

@@ -18,6 +18,9 @@ class RuntimeConfig(BaseModel):
     seed: int = 42
     num_workers: int = 0
     log_level: str = "INFO"
+    allow_tf32: bool = True
+    matmul_precision: str = "high"
+    cuda_allocator_conf: str = "expandable_segments:True"
 
 
 class PathsConfig(BaseModel):
@@ -68,6 +71,9 @@ class RetrieverConfig(BaseModel):
     pooling: str = "cls"
     normalize: bool = True
     freeze: bool = False
+    torch_dtype: str = "default"
+    low_cpu_mem_usage: bool = False
+    attn_implementation: str | None = None
 
 
 class RerankerConfig(BaseModel):
@@ -85,6 +91,9 @@ class GeneratorConfig(BaseModel):
     max_new_tokens: int = 128
     do_sample: bool = False
     temperature: float = 0.0
+    torch_dtype: str = "auto"
+    low_cpu_mem_usage: bool = True
+    attn_implementation: str | None = None
 
 
 class ModelsConfig(BaseModel):

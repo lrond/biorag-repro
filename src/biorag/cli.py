@@ -18,7 +18,7 @@ from biorag.pipeline import (
     save_config_snapshot,
     train_retriever_stage,
 )
-from biorag.utils import configure_logging, set_global_seed
+from biorag.utils import configure_logging, configure_torch_runtime, set_global_seed
 
 CommandFn = Callable[[object], dict]
 QUICKSTART_PROFILES = {
@@ -156,6 +156,7 @@ def main(argv: list[str] | None = None) -> None:
         device=args.device or "cpu",
     )
     configure_logging(config.runtime.log_level)
+    configure_torch_runtime(config.runtime)
     set_global_seed(config.runtime.seed)
     save_config_snapshot(config)
     handler = _dispatch(command)
