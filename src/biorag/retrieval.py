@@ -10,7 +10,7 @@ from biorag.config import ProjectConfig, resolve_model_source
 from biorag.io import dump_jsonl, load_jsonl, write_json
 from biorag.modeling import autocast_dtype, model_load_kwargs
 from biorag.types import DocumentRecord, QuestionRecord, RetrievedContext, ScoredDocument
-from biorag.utils import batched, ensure_dir, get_logger, simple_tokenize
+from biorag.utils import batched, ensure_dir, get_logger, seeded_random, simple_tokenize
 
 LOGGER = get_logger(__name__)
 
@@ -76,6 +76,28 @@ def _search_faiss_index(index_dir: Path, queries: Any, top_k: int) -> tuple[Any,
 
 def _should_step_optimizer(batch_index: int, total_batches: int, accumulation_steps: int) -> bool:
     return batch_index % max(accumulation_steps, 1) == 0 or batch_index == total_batches
+
+
+def _sample_epoch_training_pairs(
+    pairs: list[tuple[str, str, str, str]],
+    *,
+    positive_sampling: str,
+    seed: int,
+    epoch: int,
+) -> list[tuple[str, str, str, str]]:
+    rng = seeded_random(seed + epoch)
+    normalized = positive_sampling.strip().lower()
+    if normalized == "all_positives":
+        epoch_pairs = list(pairs)
+    elif normalized == "single_positive_per_question":
+        grouped: dict[str, list[tuple[str, str, str, str]]] = {}
+        for pair in pairs:
+            grouped.setdefault(pair[0], []).append(pair)
+        epoch_pairs = [rng.choice(group) for group in grouped.values()]
+    else:
+        raise ValueError(f"Unsupported positive_sampling mode: {positive_sampling}")
+    rng.shuffle(epoch_pairs)
+    return epoch_pairs
 
 
 def build_index(
@@ -390,12 +412,21 @@ def train_contrastive_retriever(
     global_batch_step = 0
     global_optimizer_step = 0
     for epoch in range(config.training.epochs):
+        epoch_pairs = _sample_epoch_training_pairs(
+            pairs,
+            positive_sampling=config.training.positive_sampling,
+            seed=config.runtime.seed,
+            epoch=epoch,
+        )
         epoch_loss = 0.0
         step_count = 0
         optimizer_step_count = 0
-        total_batches = math.ceil(len(pairs) / config.training.batch_size)
+        total_batches = math.ceil(len(epoch_pairs) / config.training.batch_size)
         optimizer.zero_grad(set_to_none=True)
-        for batch_index, batch in enumerate(batched(pairs, config.training.batch_size), start=1):
+        for batch_index, batch in enumerate(
+            batched(epoch_pairs, config.training.batch_size),
+            start=1,
+        ):
             question_texts = [item[1] for item in batch]
             document_texts = [item[3] for item in batch]
             encoded_q = tokenizer(
@@ -469,6 +500,7 @@ def train_contrastive_retriever(
                 "loss": epoch_loss / max(step_count, 1),
                 "optimizer_steps": optimizer_step_count,
                 "gradient_accumulation_steps": accumulation_steps,
+                "training_pairs": len(epoch_pairs),
             }
         )
         LOGGER.info(
@@ -485,6 +517,7 @@ def train_contrastive_retriever(
             "history": history,
             "step_history": step_history,
             "pair_count": len(pairs),
+            "positive_sampling": config.training.positive_sampling,
             "batch_size": config.training.batch_size,
             "epochs": config.training.epochs,
             "gradient_accumulation_steps": accumulation_steps,

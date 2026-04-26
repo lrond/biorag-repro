@@ -67,6 +67,8 @@ The default presets are tuned to fit a single 24GB RTX 5090-class GPU:
 
 - Qwen2.5-7B-Instruct loads in `bfloat16` with low-CPU-memory loading.
 - Retriever fine-tuning uses BF16 mixed precision in the full preset.
+- Retriever fine-tuning samples one positive document per question per epoch,
+  matching the InfoNCE setup described in the report.
 - CUDA TF32 matmul is enabled for faster Ampere/Ada/Blackwell-class GPUs.
 
 For the report-aligned experiment, use:

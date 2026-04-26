@@ -151,12 +151,37 @@ def _retrieval_abstain_score(context: RetrievedContext) -> float:
     return context.candidates[0].score
 
 
+def _rerank_abstain_score(context: RetrievedContext) -> float | None:
+    rerank_scores = [
+        score
+        for score in (
+            _float_or_none(candidate.metadata.get("rerank_score"))
+            for candidate in context.candidates
+        )
+        if score is not None
+    ]
+    if rerank_scores:
+        return max(rerank_scores)
+    if context.stage == "reranked" and context.candidates:
+        return context.candidates[0].score
+    return None
+
+
 def _should_abstain(
     question: QuestionRecord, context: RetrievedContext, config: ProjectConfig
 ) -> bool:
     if not config.inference.abstain_when_empty:
         return False
     if not context.candidates:
+        return True
+    rerank_threshold = config.inference.rerank_abstain_threshold
+    rerank_score = _rerank_abstain_score(context)
+    if (
+        question.type != "summary"
+        and rerank_threshold is not None
+        and rerank_score is not None
+        and rerank_score < rerank_threshold
+    ):
         return True
     evidence_score = _retrieval_abstain_score(context)
     return question.type != "summary" and evidence_score < config.inference.abstain_threshold

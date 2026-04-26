@@ -66,6 +66,8 @@ biorag quickstart \
 
 - Qwen2.5-7B-Instruct 默认以 `bfloat16` 和低 CPU 内存方式加载。
 - `full` 预设下 retriever 微调使用 BF16 mixed precision。
+- `full` 预设下每个问题每轮只采样一个正例文档，更贴近报告中的
+  InfoNCE 设置。
 - 默认启用 CUDA TF32 matmul，适合 Ampere/Ada/Blackwell 级别 GPU。
 
 复现报告对齐实验时可以直接运行：

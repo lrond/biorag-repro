@@ -5,7 +5,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from biorag.retrieval import _search_faiss_index, _should_step_optimizer
+from biorag.retrieval import (
+    _sample_epoch_training_pairs,
+    _search_faiss_index,
+    _should_step_optimizer,
+)
 
 
 class RetrievalTests(unittest.TestCase):
@@ -54,6 +58,39 @@ class RetrievalTests(unittest.TestCase):
         self.assertFalse(_should_step_optimizer(1, total_batches=5, accumulation_steps=2))
         self.assertTrue(_should_step_optimizer(2, total_batches=5, accumulation_steps=2))
         self.assertTrue(_should_step_optimizer(5, total_batches=5, accumulation_steps=2))
+
+    def test_single_positive_sampling_keeps_one_pair_per_question(self) -> None:
+        pairs = [
+            ("q1", "question 1", "d1", "doc 1"),
+            ("q1", "question 1", "d2", "doc 2"),
+            ("q2", "question 2", "d3", "doc 3"),
+        ]
+
+        sampled = _sample_epoch_training_pairs(
+            pairs,
+            positive_sampling="single_positive_per_question",
+            seed=42,
+            epoch=0,
+        )
+
+        self.assertEqual(len(sampled), 2)
+        self.assertEqual({pair[0] for pair in sampled}, {"q1", "q2"})
+
+    def test_all_positive_sampling_keeps_all_pairs(self) -> None:
+        pairs = [
+            ("q1", "question 1", "d1", "doc 1"),
+            ("q1", "question 1", "d2", "doc 2"),
+            ("q2", "question 2", "d3", "doc 3"),
+        ]
+
+        sampled = _sample_epoch_training_pairs(
+            pairs,
+            positive_sampling="all_positives",
+            seed=42,
+            epoch=0,
+        )
+
+        self.assertEqual(len(sampled), 3)
 
 
 if __name__ == "__main__":

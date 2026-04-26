@@ -5,6 +5,7 @@
   "final_top_k": 3,
   "abstain_when_empty": true,
   "abstain_threshold": 0.05,
+  "rerank_abstain_threshold": null,
   "max_prompt_characters": 6000,
   "greedy_decoding": true
 }

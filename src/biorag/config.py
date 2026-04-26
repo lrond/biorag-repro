@@ -109,6 +109,7 @@ class TrainingConfig(BaseModel):
     batch_size: int = 16
     max_length: int = 512
     temperature: float = 0.05
+    positive_sampling: str = "all_positives"
     rerank_batch_size: int = 32
     gradient_accumulation_steps: int = 1
     mixed_precision: str = "no"
@@ -122,6 +123,7 @@ class InferenceConfig(BaseModel):
     final_top_k: int = 3
     abstain_when_empty: bool = True
     abstain_threshold: float = 0.05
+    rerank_abstain_threshold: float | None = None
     max_prompt_characters: int = 6000
     greedy_decoding: bool = True
 

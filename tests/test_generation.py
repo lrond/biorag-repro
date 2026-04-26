@@ -53,6 +53,35 @@ class GenerationTests(unittest.TestCase):
             )
             self.assertTrue(_should_abstain(question, context, config))
 
+    def test_rerank_safety_gate_can_abstain_on_low_rerank_score(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config = make_alignment_config(tmpdir)
+            config = config.model_copy(
+                update={
+                    "inference": config.inference.model_copy(
+                        update={"rerank_abstain_threshold": 0.0}
+                    )
+                }
+            )
+            question = QuestionRecord(id="q1", type="factoid", body="Which marker?")
+            context = RetrievedContext(
+                question_id="q1",
+                question_type="factoid",
+                question="Which marker?",
+                stage="reranked",
+                metadata={"top_retrieval_score": 0.8},
+                candidates=[
+                    ScoredDocument(
+                        document_id="1",
+                        score=-1.2,
+                        rank=1,
+                        text="weak reranked evidence",
+                        metadata={"retrieval_score": 0.8, "rerank_score": -1.2},
+                    )
+                ],
+            )
+            self.assertTrue(_should_abstain(question, context, config))
+
 
 if __name__ == "__main__":
     unittest.main()

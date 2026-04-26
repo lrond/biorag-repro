@@ -16,7 +16,8 @@
       "retrieve_top_k": 20,
       "rerank_enabled": true,
       "rerank_top_k": 20,
-      "final_top_k": 3
+      "final_top_k": 3,
+      "rerank_abstain_threshold": 0.0
     }
   }
 }

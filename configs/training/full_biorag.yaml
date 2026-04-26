@@ -5,6 +5,7 @@
   "batch_size": 16,
   "max_length": 512,
   "temperature": 0.05,
+  "positive_sampling": "single_positive_per_question",
   "rerank_batch_size": 32,
   "gradient_accumulation_steps": 1,
   "mixed_precision": "bf16",
