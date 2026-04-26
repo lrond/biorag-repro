@@ -1,7 +1,5 @@
 .DS_Store
 .env
-.pytest_cache/
-.ruff_cache/
 .venv/
 __pycache__/
 *.egg-info/
@@ -9,24 +7,24 @@ __pycache__/
 *.pyo
 *.pyd
 
-data/raw/*
-!data/raw/.gitkeep
+logs/
+outputs/
+models/*
+!models/.gitkeep
+
 data/interim/*
 !data/interim/.gitkeep
 data/processed/*
 !data/processed/.gitkeep
-outputs/
+data/indexes/*
+!data/indexes/.gitkeep
+
+# The official raw zips are intentionally tracked in data/raw for this course repo.
 BioASQ-training12b.zip
 Task12BGoldenEnriched.zip
 BioASQ-training12b/
 Task12BGoldenEnriched/
 
-checkpoints/
-logs/
-artifacts/
-dist/
-build/
-
-# Local report/reference artifacts; keep the reproducible project clean.
+# Local reference materials, not part of the cleaned report-version project.
 group2.pdf
 report_version/

@@ -1,234 +1,211 @@
-# BioRAG
+# BioRAG Report Version
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+这是基于 `report_version/team-2` 重新整理后的项目版本。旧的工程化 package、
+多份 quickstart 和分散文档已经移除；当前 `main` 只保留报告版风格的脚本流程，
+并修正了原 report version 里的路径、切分、检索和评估问题。
 
-BioRAG is a biomedical retrieval-augmented generation pipeline for BioASQ-style
-question answering. The repository covers data preparation, corpus building,
-indexing, retriever training, reranking, answer generation, evaluation, and
-comparison reporting in one place.
+## 项目结构
 
-It is designed to be easy to launch on a cloud machine while still keeping the
-individual stages accessible when you want tighter control.
-
-## Highlights
-
-- Official BioASQ archive ingestion and canonical question normalization
-- Two corpus modes: `linked_pubmed` and `pubmed_dump`
-- Two end-to-end presets:
-  - `baseline`: frozen bi-encoder retrieval and direct generation
-  - `full`: contrastive retriever training, reranking, and generation
-- Module-level model switching with `pretrained` and `finetuned` modes
-- Built-in BioASQ-style metrics and a comparison table generator
-- Cloud-friendly run structure with config snapshots and stage outputs
-
-## Quick Start
-
-1. Install the project:
-
-```bash
-python3 -m pip install -e '.[cloud]'
+```text
+src/
+  prepare_data.py              # 从 BioASQ zip 构建 train/eval/all processed jsonl
+  train_retriever.py           # PubMedBERT + MultipleNegativesRankingLoss
+  build_index.py               # 构建 BM25 + FAISS index
+  retrieval.py                 # 检索器封装
+  reranker.py                  # Cross-encoder reranker
+  rag_engine_baseline.py       # baseline: PubMedBERT top-3 + Qwen
+  rag_engine.py                # full BioRAG: top-20 + rerank top-3 + Qwen
+  batch_inference_baseline.py  # baseline 批量推理
+  batch_inference.py           # full BioRAG 批量推理
+  evaluate_official.py         # BioASQ-style 指标与对照表
+  plot_training_curve.py       # 训练收敛曲线
+  analyze_errors.py            # 错误分析
+  test_latency.py              # 延迟测试
+  run_pipeline.py              # 一键串联流程
+data/
+  raw/                         # BioASQ 原始 zip
+  processed/                   # 生成的 processed jsonl
+  interim/pubmed_cache/        # PubMed 增量缓存
+  indexes/                     # FAISS/BM25 index
+models/                        # 微调模型
+outputs/                       # 预测、评估、曲线
 ```
 
-2. Put the official BioASQ archives under `data/raw/`:
+## 环境安装
 
-- `BioASQ-training12b.zip`
-- `Task12BGoldenEnriched.zip`
+```bash
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+```
 
-3. If you plan to use `linked_pubmed`, set your NCBI email:
+AutoDL 或国内网络可以先设置镜像：
+
+```bash
+python -m pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
+```
+
+如果要从 NCBI 拉 PubMed 摘要，建议设置邮箱：
 
 ```bash
 export NCBI_EMAIL="you@example.com"
 ```
 
-4. Run one of the built-in entry points:
+## 数据
 
-```bash
-biorag doctor --profile full --device cuda
-```
-
-Then launch the pipelines:
-
-```bash
-biorag quickstart --profile baseline --device cuda
-biorag quickstart --profile full --device cuda
-```
-
-By default, `quickstart` reads from `data/raw/`, writes to `outputs/`, and uses
-`baseline` or `full` as the run name.
-
-If your paths are different, override them directly:
-
-```bash
-biorag quickstart \
-  --profile full \
-  --input-dir /path/to/data \
-  --output-dir /path/to/outputs \
-  --run-name exp-full \
-  --device cuda
-```
-
-For a fuller runbook, see [QUICKSTART.md](QUICKSTART.md). For AutoDL, see
-[docs/AUTODL.md](docs/AUTODL.md). For the paper/report mapping, see
-[docs/REPORT_ALIGNMENT.md](docs/REPORT_ALIGNMENT.md).
-
-## RTX 5090 / 24GB GPU Notes
-
-The default presets are tuned to fit a single 24GB RTX 5090-class GPU:
-
-- Qwen2.5-7B-Instruct loads in `bfloat16` with low-CPU-memory loading.
-- Retriever fine-tuning uses BF16 mixed precision in the full preset.
-- Retriever fine-tuning samples one positive document per question per epoch,
-  matching the InfoNCE setup described in the report.
-- CUDA TF32 matmul is enabled for faster Ampere/Ada/Blackwell-class GPUs.
-
-For the report-aligned experiment, use:
-
-```bash
-biorag quickstart --profile baseline --device cuda
-biorag quickstart --profile full --device cuda
-```
-
-If you still see memory pressure from long prompts or other local processes,
-reduce `models.generator.max_new_tokens` or `inference.max_prompt_characters`
-in the active config.
-
-## Main Entry Points
-
-For most users, these are the only commands you need:
-
-- `biorag quickstart --profile baseline`
-  Runs the end-to-end baseline pipeline.
-- `biorag quickstart --profile full`
-  Runs retriever training plus the full retrieval, reranking, generation, and
-  evaluation flow.
-- `biorag doctor --profile full`
-  Checks local data, required dependencies, device readiness, and common setup
-  problems before you start a long run.
-- `biorag-report --baseline-report ... --ours-report ... --output-dir ...`
-  Builds a paper-style `Baseline / Ours / Gain` comparison table.
-- `biorag-plot --training-metrics ... --output-dir ...`
-  Builds a paper-style retriever training convergence curve.
-
-The stage-by-stage commands remain available when you want more control:
-
-- `prepare-data`
-- `build-corpus`
-- `build-index`
-- `train-retriever`
-- `retrieve`
-- `rerank`
-- `generate`
-- `evaluate`
-- `run-baseline`
-- `run-full-pipeline`
-
-All stage commands accept the same runtime flags:
-
-- `--config`
-- `--input-dir`
-- `--output-dir`
-- `--run-name`
-- `--device`
-
-## Preset Configurations
-
-Main project presets:
-
-- [configs/baseline.yaml](configs/baseline.yaml)
-- [configs/full_biorag.yaml](configs/full_biorag.yaml)
-
-Dataset presets:
-
-- [configs/dataset/bioasq12b_report_strict.yaml](configs/dataset/bioasq12b_report_strict.yaml)
-- [configs/dataset/bioasq12b_golden_eval.yaml](configs/dataset/bioasq12b_golden_eval.yaml)
-
-Each model block supports two loading modes:
-
-- `mode: pretrained`
-  Load directly from `model_name`
-- `mode: finetuned`
-  Load the same base `model_name` and then apply local weights from
-  `checkpoint_path`
-
-Default model ids:
-
-- Retriever:
-  `microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext`
-- Reranker:
-  `cross-encoder/ms-marco-MiniLM-L-6-v2`
-- Generator:
-  `Qwen/Qwen2.5-7B-Instruct`
-
-## Default Data Behavior
-
-The default dataset preset expects:
-
-- `BioASQ-training12b.zip`
-- `Task12BGoldenEnriched.zip`
-
-The built-in protocol uses:
-
-- a fixed `500`-question stratified holdout
-- `seed=42`
-- zero overlap between training and evaluation questions
-- `linked_pubmed` as the default corpus mode
-- `title + abstract` as the document text
-- greedy decoding for generation
-
-## Output Structure
-
-Each run directory under `outputs/<run-name>/` can include:
-
-- `resolved_config.json`
-- `canonical/`
-- `corpus/`
-- `index/`
-- `training/`
-- `retrieval/`
-- `rerank/`
-- `predictions/`
-- `evaluation/`
-
-This makes it easy to inspect intermediate artifacts or resume work in the
-cloud.
-
-## Repository Layout
+仓库默认使用：
 
 ```text
-configs/                 Layered experiment configuration
-data/
-  raw/                   Optional location for official BioASQ archives
-  interim/               Cached ids and intermediate files
-  processed/             Canonical questions, corpus, and index metadata
-scripts/                 Helper scripts for cloud setup
-src/biorag/              Runtime package
-tests/                   Toy fixtures and smoke tests
+data/raw/BioASQ-training12b.zip
+data/raw/Task12BGoldenEnriched.zip
 ```
 
-## Example Workflow
+`prepare_data.py` 会从 training zip 中做 500 条分层 holdout，并保证训练问题和
+评测问题不重叠。PubMed 摘要会按 PMID 增量缓存到
+`data/interim/pubmed_cache/`，中断后重跑会复用已经抓到的数据。
 
-If you want explicit stage control instead of `quickstart`, a common flow is:
+## 一键运行
+
+先跑 baseline：
 
 ```bash
-biorag prepare-data --config configs/full_biorag.yaml --input-dir data/raw --output-dir outputs --run-name prep --device cpu
-biorag build-corpus --config configs/full_biorag.yaml --input-dir data/raw --output-dir outputs --run-name corpus --device cpu
-biorag run-baseline --config configs/baseline.yaml --input-dir data/raw --output-dir outputs --run-name baseline --device cuda
-biorag run-full-pipeline --config configs/full_biorag.yaml --input-dir data/raw --output-dir outputs --run-name full --device cuda
-biorag-report --baseline-report outputs/baseline/evaluation/evaluation_report.json --ours-report outputs/full/evaluation/evaluation_report.json --output-dir outputs/comparison
-biorag-plot --training-metrics outputs/full/training/training_metrics.json --output-dir outputs/full/training
+mkdir -p logs
+python src/run_pipeline.py --profile baseline --device cuda > logs/baseline.log 2>&1
 ```
 
-## Development
-
-Install dev tools:
+再跑 full BioRAG：
 
 ```bash
-python3 -m pip install -e '.[dev]'
+python src/run_pipeline.py --profile full --device cuda > logs/full.log 2>&1
 ```
 
-Run checks:
+查看进度：
 
 ```bash
-ruff check .
-python3 -m unittest discover -s tests -v
+tail -f logs/full.log
 ```
+
+如果想一次跑完 baseline 和 full：
+
+```bash
+python src/run_pipeline.py --profile all --device cuda
+```
+
+## 分阶段运行
+
+### 1. 准备数据
+
+```bash
+python src/prepare_data.py
+```
+
+主要输出：
+
+```text
+data/processed/train_processed.jsonl
+data/processed/eval_processed.jsonl
+data/processed/all_processed.jsonl
+data/processed/split_manifest.json
+```
+
+### 2. Baseline
+
+```bash
+python src/build_index.py --model base --device cuda
+python src/batch_inference_baseline.py --device cuda
+python src/evaluate_official.py
+```
+
+Baseline 对齐报告里的设置：PubMedBERT-base frozen bi-encoder，FAISS dense
+top-3，直接送入 Qwen2.5-7B-Instruct。
+
+### 3. Full BioRAG
+
+```bash
+python src/train_retriever.py --device cuda
+python src/build_index.py --model finetuned --device cuda
+python src/batch_inference.py --device cuda
+python src/evaluate_official.py
+```
+
+Full BioRAG 对齐报告里的设置：InfoNCE/MultipleNegativesRankingLoss 微调
+retriever，先检索 top-20，再用 `cross-encoder/ms-marco-MiniLM-L-6-v2`
+重排并选 top-3，最后交给 Qwen2.5-7B-Instruct 生成。
+
+### 4. 曲线和分析
+
+```bash
+python src/plot_training_curve.py
+python src/analyze_errors.py
+python src/test_latency.py --mode baseline --device cuda
+python src/test_latency.py --mode full --device cuda
+```
+
+## 关键超参
+
+默认超参集中在 `src/config.py`：
+
+| 项目 | 默认值 |
+| --- | --- |
+| Retriever base | `microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext` |
+| Reranker | `cross-encoder/ms-marco-MiniLM-L-6-v2` |
+| Generator | `Qwen/Qwen2.5-7B-Instruct` |
+| Holdout | 500 条分层随机样本，seed=42 |
+| Epochs | 3 |
+| Batch size | 16 |
+| Learning rate | 2e-5 |
+| InfoNCE temperature | 0.05 |
+| Baseline retrieval | top-3 |
+| Full retrieval | top-20 -> rerank top-3 |
+| Generation | greedy decoding |
+
+常用环境变量：
+
+```bash
+export HF_ENDPOINT=https://hf-mirror.com
+export NCBI_EMAIL=you@example.com
+export BIORAG_USE_BM25=0
+```
+
+`BIORAG_USE_BM25=0` 是默认值，更贴近论文里的 FAISS dense retrieval。
+如果想复用原 report version 的混合检索思路，可以设置为 `1`。
+
+## AutoDL 常用命令
+
+```bash
+cd /root/autodl-tmp
+git clone git@github.com:lrond/biorag-repro.git nlp
+cd nlp
+python -m pip install -r requirements.txt
+export NCBI_EMAIL="you@example.com"
+mkdir -p logs
+screen -S biorag
+python src/run_pipeline.py --profile all --device cuda > logs/run.log 2>&1
+```
+
+退出 screen：按 `Ctrl-A` 再按 `D`。
+
+监控：
+
+```bash
+tail -f logs/run.log
+find data/interim/pubmed_cache -name '*.json' | wc -l
+nvidia-smi
+```
+
+停止：
+
+```bash
+pkill -f "src/run_pipeline.py"
+```
+
+## 这版相比原 report_version 修了什么
+
+- 不再把核心代码藏在 `.ipynb_checkpoints/`。
+- 不需要手动改 `MODEL_NAME`，`build_index.py --model base|finetuned` 直接切换。
+- 不再用前 500 条假装 holdout，而是 500 条分层随机 holdout。
+- 训练集和评测集按 question id 去重，避免问题级重叠。
+- PubMed 缓存增量写入，长时间 fetch 中断后可继续。
+- 修复原 `retrieval.py` 在 dense 循环内提前 `return` 的问题。
+- 默认使用 FAISS dense retrieval，更贴近论文；BM25 只作为可选开关。
+- 评估增加 MRR、list precision/recall/F1、ROUGE-L、BERTScore 和对照表输出。
+- 训练保存 step-level loss，可直接画收敛曲线。
