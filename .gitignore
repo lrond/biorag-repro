@@ -1,0 +1,30 @@
+.DS_Store
+.env
+.venv/
+__pycache__/
+*.egg-info/
+*.pyc
+*.pyo
+*.pyd
+
+logs/
+outputs/
+models/*
+!models/.gitkeep
+
+data/interim/*
+!data/interim/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+data/indexes/*
+!data/indexes/.gitkeep
+
+# The official raw zips are intentionally tracked in data/raw for this course repo.
+BioASQ-training12b.zip
+Task12BGoldenEnriched.zip
+BioASQ-training12b/
+Task12BGoldenEnriched/
+
+# Local notes and large scratch artifacts.
+group2.pdf
+local_reference/

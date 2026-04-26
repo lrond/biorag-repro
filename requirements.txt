@@ -1,0 +1,10 @@
+torch
+transformers>=4.41.0
+accelerate>=0.33.0
+sentence-transformers>=3.0.1
+faiss-cpu>=1.8.0
+rank_bm25>=0.2.2
+numpy>=1.26.0
+bert-score>=0.3.13
+matplotlib>=3.8.0
+tqdm>=4.66.0
