@@ -6,6 +6,7 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from pathlib import Path
+from typing import Iterator
 
 from biorag.config import DatasetConfig
 from biorag.io import dump_jsonl, iter_jsonl, load_jsonl, write_json
@@ -49,10 +50,14 @@ class PubMedClient:
 
     def fetch_many(self, pmids: list[str]) -> list[DocumentRecord]:
         documents: list[DocumentRecord] = []
-        for batch in chunked_iterable(pmids, self.batch_size):
-            documents.extend(self._fetch_batch(batch))
-            time.sleep(self.sleep_seconds)
+        for batch_documents in self.iter_fetch_batches(pmids):
+            documents.extend(batch_documents)
         return documents
+
+    def iter_fetch_batches(self, pmids: list[str]) -> Iterator[list[DocumentRecord]]:
+        for batch in chunked_iterable(pmids, self.batch_size):
+            yield self._fetch_batch(batch)
+            time.sleep(self.sleep_seconds)
 
     def _fetch_batch(self, pmids: list[str]) -> list[DocumentRecord]:
         query = {
@@ -110,12 +115,17 @@ def build_linked_pubmed_corpus(
     missing = [pmid for pmid in pmids if pmid not in cached_documents]
     if missing:
         client = PubMedClient(dataset_config)
-        fetched = client.fetch_many(missing)
-        for document in fetched:
-            cached_documents[document.id] = document
-            (cache_dir / f"{document.id}.json").write_text(
-                document.model_dump_json(indent=2),
-                encoding="utf-8",
+        for fetched_batch in client.iter_fetch_batches(missing):
+            for document in fetched_batch:
+                cached_documents[document.id] = document
+                (cache_dir / f"{document.id}.json").write_text(
+                    document.model_dump_json(indent=2),
+                    encoding="utf-8",
+                )
+            LOGGER.info(
+                "Cached %s/%s linked PubMed documents",
+                len(cached_documents),
+                len(pmids),
             )
     ordered = [cached_documents[pmid] for pmid in pmids if pmid in cached_documents]
     corpus_path = dump_jsonl(output_path, ordered)
