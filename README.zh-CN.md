@@ -88,6 +88,8 @@ biorag quickstart --profile full --device cuda
   运行 retriever 训练、检索、重排、生成和评测的完整流程。
 - `biorag-report --baseline-report ... --ours-report ... --output-dir ...`
   生成 `Baseline / Ours / Gain` 风格的对照表。
+- `biorag-plot --training-metrics ... --output-dir ...`
+  生成论文风格的 retriever 训练收敛曲线。
 
 如果你希望手动控制各个阶段，也可以使用这些命令：
 
@@ -193,6 +195,7 @@ biorag build-corpus --config configs/full_biorag.yaml --input-dir data/raw --out
 biorag run-baseline --config configs/baseline.yaml --input-dir data/raw --output-dir outputs --run-name baseline --device cuda
 biorag run-full-pipeline --config configs/full_biorag.yaml --input-dir data/raw --output-dir outputs --run-name full --device cuda
 biorag-report --baseline-report outputs/baseline/evaluation/evaluation_report.json --ours-report outputs/full/evaluation/evaluation_report.json --output-dir outputs/comparison
+biorag-plot --training-metrics outputs/full/training/training_metrics.json --output-dir outputs/full/training
 ```
 
 ## 开发与检查

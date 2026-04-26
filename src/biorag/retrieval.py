@@ -386,6 +386,9 @@ def train_contrastive_retriever(
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp and amp_dtype == torch.float16)
     accumulation_steps = max(1, config.training.gradient_accumulation_steps)
     history: list[dict[str, float | int]] = []
+    step_history: list[dict[str, float | int]] = []
+    global_batch_step = 0
+    global_optimizer_step = 0
     for epoch in range(config.training.epochs):
         epoch_loss = 0.0
         step_count = 0
@@ -435,6 +438,9 @@ def train_contrastive_retriever(
                 scaler.scale(loss).backward()
             else:
                 loss.backward()
+            raw_loss_value = float(raw_loss.detach().cpu().item())
+            global_batch_step += 1
+            did_optimizer_step = 0
             if _should_step_optimizer(batch_index, total_batches, accumulation_steps):
                 if scaler.is_enabled():
                     scaler.step(optimizer)
@@ -443,7 +449,19 @@ def train_contrastive_retriever(
                     optimizer.step()
                 optimizer.zero_grad(set_to_none=True)
                 optimizer_step_count += 1
-            epoch_loss += float(raw_loss.detach().cpu().item())
+                global_optimizer_step += 1
+                did_optimizer_step = 1
+            step_history.append(
+                {
+                    "step": global_batch_step,
+                    "epoch": epoch + 1,
+                    "batch": batch_index,
+                    "loss": raw_loss_value,
+                    "optimizer_step": global_optimizer_step,
+                    "did_optimizer_step": did_optimizer_step,
+                }
+            )
+            epoch_loss += raw_loss_value
             step_count += 1
         history.append(
             {
@@ -463,6 +481,13 @@ def train_contrastive_retriever(
     tokenizer.save_pretrained(run_dir / "retriever")
     write_json(
         run_dir / "training_metrics.json",
-        {"history": history, "pair_count": len(pairs)},
+        {
+            "history": history,
+            "step_history": step_history,
+            "pair_count": len(pairs),
+            "batch_size": config.training.batch_size,
+            "epochs": config.training.epochs,
+            "gradient_accumulation_steps": accumulation_steps,
+        },
     )
     return run_dir / "retriever"

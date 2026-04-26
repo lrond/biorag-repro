@@ -91,6 +91,8 @@ For most users, these are the only commands you need:
   evaluation flow.
 - `biorag-report --baseline-report ... --ours-report ... --output-dir ...`
   Builds a paper-style `Baseline / Ours / Gain` comparison table.
+- `biorag-plot --training-metrics ... --output-dir ...`
+  Builds a paper-style retriever training convergence curve.
 
 The stage-by-stage commands remain available when you want more control:
 
@@ -198,6 +200,7 @@ biorag build-corpus --config configs/full_biorag.yaml --input-dir data/raw --out
 biorag run-baseline --config configs/baseline.yaml --input-dir data/raw --output-dir outputs --run-name baseline --device cuda
 biorag run-full-pipeline --config configs/full_biorag.yaml --input-dir data/raw --output-dir outputs --run-name full --device cuda
 biorag-report --baseline-report outputs/baseline/evaluation/evaluation_report.json --ours-report outputs/full/evaluation/evaluation_report.json --output-dir outputs/comparison
+biorag-plot --training-metrics outputs/full/training/training_metrics.json --output-dir outputs/full/training
 ```
 
 ## Development
