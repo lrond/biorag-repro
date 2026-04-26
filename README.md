@@ -1,8 +1,8 @@
-# BioRAG Report Version
+# BioRAG
 
-这是基于 `report_version/team-2` 重新整理后的项目版本。旧的工程化 package、
-多份 quickstart 和分散文档已经移除；当前 `main` 只保留报告版风格的脚本流程，
-并修正了原 report version 里的路径、切分、检索和评估问题。
+BioRAG 是一个面向 BioASQ 生物医学问答任务的检索增强生成项目。项目包含
+数据准备、PubMed 语料构建、FAISS 检索索引、PubMedBERT 检索器微调、
+Cross-Encoder 重排、Qwen2.5 生成、BioASQ-style 评估、错误分析和训练曲线绘制。
 
 ## 项目结构
 
@@ -166,8 +166,8 @@ export NCBI_EMAIL=you@example.com
 export BIORAG_USE_BM25=0
 ```
 
-`BIORAG_USE_BM25=0` 是默认值，更贴近论文里的 FAISS dense retrieval。
-如果想复用原 report version 的混合检索思路，可以设置为 `1`。
+`BIORAG_USE_BM25=0` 是默认值，使用 FAISS dense retrieval。如果想启用
+BM25 + dense 的混合检索，可以设置为 `1`。
 
 ## AutoDL 常用命令
 
@@ -197,15 +197,3 @@ nvidia-smi
 ```bash
 pkill -f "src/run_pipeline.py"
 ```
-
-## 这版相比原 report_version 修了什么
-
-- 不再把核心代码藏在 `.ipynb_checkpoints/`。
-- 不需要手动改 `MODEL_NAME`，`build_index.py --model base|finetuned` 直接切换。
-- 不再用前 500 条假装 holdout，而是 500 条分层随机 holdout。
-- 训练集和评测集按 question id 去重，避免问题级重叠。
-- PubMed 缓存增量写入，长时间 fetch 中断后可继续。
-- 修复原 `retrieval.py` 在 dense 循环内提前 `return` 的问题。
-- 默认使用 FAISS dense retrieval，更贴近论文；BM25 只作为可选开关。
-- 评估增加 MRR、list precision/recall/F1、ROUGE-L、BERTScore 和对照表输出。
-- 训练保存 step-level loss，可直接画收敛曲线。

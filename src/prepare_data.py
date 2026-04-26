@@ -24,7 +24,7 @@ from data_utils import (
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Prepare BioASQ report-version data.")
+    parser = argparse.ArgumentParser(description="Prepare BioASQ data.")
     parser.add_argument("--holdout-size", type=int, default=HOLDOUT_SIZE)
     parser.add_argument("--seed", type=int, default=RANDOM_SEED)
     parser.add_argument(

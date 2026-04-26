@@ -25,6 +25,6 @@ Task12BGoldenEnriched.zip
 BioASQ-training12b/
 Task12BGoldenEnriched/
 
-# Local reference materials, not part of the cleaned report-version project.
+# Local notes and large scratch artifacts.
 group2.pdf
-report_version/
+local_reference/

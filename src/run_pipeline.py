@@ -34,7 +34,7 @@ def run_full(device: str, offline: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run the cleaned report-version pipeline.")
+    parser = argparse.ArgumentParser(description="Run the BioRAG pipeline.")
     parser.add_argument("--profile", choices=["baseline", "full", "all"], default="all")
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--offline", action="store_true")

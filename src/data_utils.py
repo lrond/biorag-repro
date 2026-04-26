@@ -133,7 +133,7 @@ def fetch_pubmed_batch(pmids: list[str]) -> list[dict[str, str]]:
         "db": "pubmed",
         "id": ",".join(pmids),
         "retmode": "xml",
-        "tool": "biorag-report-version",
+        "tool": "biorag",
     }
     if NCBI_EMAIL:
         query["email"] = NCBI_EMAIL
