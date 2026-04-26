@@ -58,6 +58,7 @@ def _load_huggingface_generator(config: ProjectConfig, device: str) -> tuple[Any
         raise RuntimeError("transformers and torch are required for generator backend.") from error
     model_source = resolve_model_source(
         config.models.generator.model_name,
+        mode=config.models.generator.mode,
         checkpoint_path=config.models.generator.checkpoint_path,
     )
     tokenizer = AutoTokenizer.from_pretrained(model_source)
@@ -126,6 +127,30 @@ def _postprocess_prediction(
     return answer, [], abstained
 
 
+def _float_or_none(value: Any) -> float | None:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _retrieval_abstain_score(context: RetrievedContext) -> float:
+    retrieval_scores = [
+        score
+        for score in (
+            _float_or_none(candidate.metadata.get("retrieval_score"))
+            for candidate in context.candidates
+        )
+        if score is not None
+    ]
+    if retrieval_scores:
+        return max(retrieval_scores)
+    top_retrieval_score = _float_or_none(context.metadata.get("top_retrieval_score"))
+    if top_retrieval_score is not None:
+        return top_retrieval_score
+    return context.candidates[0].score
+
+
 def _should_abstain(
     question: QuestionRecord, context: RetrievedContext, config: ProjectConfig
 ) -> bool:
@@ -133,8 +158,8 @@ def _should_abstain(
         return False
     if not context.candidates:
         return True
-    top_score = context.candidates[0].score
-    return question.type != "summary" and top_score < config.inference.abstain_threshold
+    evidence_score = _retrieval_abstain_score(context)
+    return question.type != "summary" and evidence_score < config.inference.abstain_threshold
 
 
 def generate_predictions(

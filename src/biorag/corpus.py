@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from biorag.config import DatasetConfig
-from biorag.io import dump_jsonl, load_jsonl, write_json
+from biorag.io import dump_jsonl, iter_jsonl, load_jsonl, write_json
 from biorag.types import DocumentRecord, QuestionRecord
 from biorag.utils import chunked_iterable, ensure_dir, extract_pmid, get_logger
 
@@ -137,9 +137,8 @@ def build_pubmed_dump_corpus(
     output_path: str | Path,
 ) -> tuple[Path, Path]:
     pmids = set(extract_linked_pmids(questions))
-    raw_rows = load_jsonl(dataset_config.pubmed_dump.input_path)
     documents: list[DocumentRecord] = []
-    for row in raw_rows:
+    for row in iter_jsonl(dataset_config.pubmed_dump.input_path):
         pmid = str(row.get(dataset_config.pubmed_dump.id_field, "")).strip()
         if pmid not in pmids:
             continue

@@ -10,17 +10,34 @@ from biorag.modeling import model_load_kwargs, resolve_torch_dtype
 class ModelModeTests(unittest.TestCase):
     def test_pretrained_mode_uses_model_name(self) -> None:
         self.assertEqual(resolve_model_source("model/base"), "model/base")
+        self.assertEqual(
+            resolve_model_source(
+                "model/base",
+                mode="pretrained",
+                checkpoint_path="/tmp/checkpoint",
+            ),
+            "model/base",
+        )
 
     def test_finetuned_mode_prefers_checkpoint(self) -> None:
         self.assertEqual(
-            resolve_model_source("model/base", checkpoint_path="/tmp/checkpoint"),
+            resolve_model_source(
+                "model/base",
+                mode="finetuned",
+                checkpoint_path="/tmp/checkpoint",
+            ),
             "/tmp/checkpoint",
         )
+
+    def test_finetuned_mode_requires_checkpoint(self) -> None:
+        with self.assertRaisesRegex(ValueError, "checkpoint_path"):
+            resolve_model_source("model/base", mode="finetuned")
 
     def test_runtime_override_has_highest_priority(self) -> None:
         self.assertEqual(
             resolve_model_source(
                 "model/base",
+                mode="finetuned",
                 checkpoint_path="/tmp/checkpoint",
                 override_path="/tmp/runtime-model",
             ),

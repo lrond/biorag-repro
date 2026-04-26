@@ -63,6 +63,21 @@ def _lexical_score(query: str, document: str) -> float:
     return overlap / math.sqrt(len(query_tokens) * len(document_tokens))
 
 
+def _search_faiss_index(index_dir: Path, queries: Any, top_k: int) -> tuple[Any, Any] | None:
+    if top_k <= 0:
+        return None
+    faiss_module = _faiss()
+    faiss_path = index_dir / "faiss.index"
+    if faiss_module is None or not faiss_path.exists():
+        return None
+    index = faiss_module.read_index(str(faiss_path))
+    return index.search(queries.astype("float32"), top_k)
+
+
+def _should_step_optimizer(batch_index: int, total_batches: int, accumulation_steps: int) -> bool:
+    return batch_index % max(accumulation_steps, 1) == 0 or batch_index == total_batches
+
+
 def build_index(
     documents: list[DocumentRecord],
     config: ProjectConfig,
@@ -94,6 +109,7 @@ def build_index(
     torch, AutoModel, AutoTokenizer = _transformers()
     source = resolve_model_source(
         config.models.retriever.model_name,
+        mode=config.models.retriever.mode,
         checkpoint_path=config.models.retriever.checkpoint_path,
         override_path=model_source,
     )
@@ -146,14 +162,17 @@ def build_index(
     return index_dir
 
 
-def _load_transformer_assets(index_dir: Path) -> tuple[list[DocumentRecord], list[str], Any]:
-    np = _numpy()
+def _load_transformer_documents(index_dir: Path) -> tuple[list[DocumentRecord], list[str]]:
     documents = [
         DocumentRecord.model_validate(row) for row in load_jsonl(index_dir / "documents.jsonl")
     ]
     ids = [document.id for document in documents]
-    embeddings = np.load(index_dir / "embeddings.npy")
-    return documents, ids, embeddings
+    return documents, ids
+
+
+def _load_transformer_embeddings(index_dir: Path) -> Any:
+    np = _numpy()
+    return np.load(index_dir / "embeddings.npy")
 
 
 def retrieve_questions(
@@ -186,7 +205,9 @@ def retrieve_questions(
                     question_type=question.type,
                     question=question.body,
                     stage="retrieval",
-                    metadata={},
+                    metadata={
+                        "top_retrieval_score": float(ranked[0][1]) if ranked else 0.0,
+                    },
                     candidates=[
                         ScoredDocument(
                             document_id=document_id,
@@ -194,6 +215,7 @@ def retrieve_questions(
                             rank=rank + 1,
                             title=documents_by_id[document_id].title,
                             text=documents_by_id[document_id].text,
+                            metadata={"retrieval_score": float(score)},
                         )
                         for rank, (document_id, score) in enumerate(ranked)
                     ],
@@ -217,10 +239,28 @@ def retrieve_questions(
     np = _numpy()
     torch, AutoModel, AutoTokenizer = _transformers()
     index_path = Path(index_dir)
-    docs, doc_ids, doc_embeddings = _load_transformer_assets(index_path)
+    docs, doc_ids = _load_transformer_documents(index_path)
     documents_by_id = {document.id: document for document in docs}
+    if not questions:
+        return dump_jsonl(output_path, [])
+    if not doc_ids:
+        return dump_jsonl(
+            output_path,
+            [
+                RetrievedContext(
+                    question_id=question.id,
+                    question_type=question.type,
+                    question=question.body,
+                    stage="retrieval",
+                    metadata={"retrieval_latency_seconds": 0.0},
+                    candidates=[],
+                )
+                for question in questions
+            ],
+        )
     source = resolve_model_source(
         config.models.retriever.model_name,
+        mode=config.models.retriever.mode,
         checkpoint_path=config.models.retriever.checkpoint_path,
         override_path=model_source,
     )
@@ -256,21 +296,43 @@ def retrieve_questions(
                     pooled = _normalize_matrix(pooled)
             question_embeddings.append(pooled.float().cpu().numpy())
     queries = np.concatenate(question_embeddings, axis=0)
-    scores = queries @ doc_embeddings.T
     average_latency = (time.perf_counter() - start) / max(len(questions), 1)
+    top_k = min(config.inference.retrieve_top_k, len(doc_ids))
+    faiss_result = _search_faiss_index(index_path, queries, top_k)
+    if faiss_result is None:
+        doc_embeddings = _load_transformer_embeddings(index_path)
+        scores = queries @ doc_embeddings.T
+        rankings_by_question = [
+            [
+                (int(doc_index), float(scores[row_index][int(doc_index)]))
+                for doc_index in scores[row_index].argsort()[::-1][:top_k]
+            ]
+            for row_index in range(len(questions))
+        ]
+    else:
+        score_rows, index_rows = faiss_result
+        rankings_by_question = [
+            [
+                (int(doc_index), float(score))
+                for score, doc_index in zip(score_rows[row_index], index_rows[row_index])
+                if int(doc_index) >= 0
+            ]
+            for row_index in range(len(questions))
+        ]
     for row_index, question in enumerate(questions):
-        ranking = scores[row_index].argsort()[::-1][: config.inference.retrieve_top_k]
+        ranking = rankings_by_question[row_index]
         candidates = []
-        for rank, doc_index in enumerate(ranking):
-            document_id = doc_ids[int(doc_index)]
+        for rank, (doc_index, score) in enumerate(ranking):
+            document_id = doc_ids[doc_index]
             document = documents_by_id[document_id]
             candidates.append(
                 ScoredDocument(
                     document_id=document_id,
-                    score=float(scores[row_index][int(doc_index)]),
+                    score=score,
                     rank=rank + 1,
                     title=document.title,
                     text=document.text,
+                    metadata={"retrieval_score": score},
                 )
             )
         contexts.append(
@@ -279,7 +341,10 @@ def retrieve_questions(
                 question_type=question.type,
                 question=question.body,
                 stage="retrieval",
-                metadata={"retrieval_latency_seconds": average_latency},
+                metadata={
+                    "retrieval_latency_seconds": average_latency,
+                    "top_retrieval_score": candidates[0].score if candidates else 0.0,
+                },
                 candidates=candidates,
             )
         )
@@ -319,11 +384,15 @@ def train_contrastive_retriever(
     amp_dtype = autocast_dtype(config.training.mixed_precision, torch)
     use_amp = _use_cuda_autocast(device, amp_dtype)
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp and amp_dtype == torch.float16)
+    accumulation_steps = max(1, config.training.gradient_accumulation_steps)
     history: list[dict[str, float | int]] = []
     for epoch in range(config.training.epochs):
         epoch_loss = 0.0
         step_count = 0
-        for batch in batched(pairs, config.training.batch_size):
+        optimizer_step_count = 0
+        total_batches = math.ceil(len(pairs) / config.training.batch_size)
+        optimizer.zero_grad(set_to_none=True)
+        for batch_index, batch in enumerate(batched(pairs, config.training.batch_size), start=1):
             question_texts = [item[1] for item in batch]
             document_texts = [item[3] for item in batch]
             encoded_q = tokenizer(
@@ -360,21 +429,28 @@ def train_contrastive_retriever(
                     d_emb = _normalize_matrix(d_emb)
                 logits = q_emb @ d_emb.T / config.training.temperature
                 labels = torch.arange(logits.shape[0], device=device)
-                loss = torch.nn.functional.cross_entropy(logits, labels)
+                raw_loss = torch.nn.functional.cross_entropy(logits, labels)
+                loss = raw_loss / accumulation_steps
             if scaler.is_enabled():
                 scaler.scale(loss).backward()
-                scaler.step(optimizer)
-                scaler.update()
             else:
                 loss.backward()
-                optimizer.step()
-            optimizer.zero_grad(set_to_none=True)
-            epoch_loss += float(loss.detach().cpu().item())
+            if _should_step_optimizer(batch_index, total_batches, accumulation_steps):
+                if scaler.is_enabled():
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
+                optimizer_step_count += 1
+            epoch_loss += float(raw_loss.detach().cpu().item())
             step_count += 1
         history.append(
             {
                 "epoch": epoch + 1,
                 "loss": epoch_loss / max(step_count, 1),
+                "optimizer_steps": optimizer_step_count,
+                "gradient_accumulation_steps": accumulation_steps,
             }
         )
         LOGGER.info(

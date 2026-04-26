@@ -3,6 +3,7 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from biorag.bioasq import parse_bioasq_questions
 from biorag.config import DatasetConfig
@@ -33,11 +34,12 @@ class CorpusTests(unittest.TestCase):
                     },
                 }
             )
-            corpus_path, manifest_path = build_pubmed_dump_corpus(
-                questions,
-                dataset_config,
-                Path(tmpdir) / "corpus.jsonl",
-            )
+            with patch("biorag.corpus.load_jsonl", side_effect=AssertionError):
+                corpus_path, manifest_path = build_pubmed_dump_corpus(
+                    questions,
+                    dataset_config,
+                    Path(tmpdir) / "corpus.jsonl",
+                )
             corpus = load_corpus(corpus_path)
             self.assertEqual(len(corpus), 3)
             self.assertTrue(manifest_path.exists())

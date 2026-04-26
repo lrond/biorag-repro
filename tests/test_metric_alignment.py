@@ -116,6 +116,7 @@ class MetricAlignmentTests(unittest.TestCase):
                             rank=1,
                             title="Doc 1",
                             text="lower score candidate",
+                            metadata={"retrieval_score": 0.1},
                         ),
                         ScoredDocument(
                             document_id="2",
@@ -123,6 +124,7 @@ class MetricAlignmentTests(unittest.TestCase):
                             rank=2,
                             title="Doc 2",
                             text="higher score candidate",
+                            metadata={"retrieval_score": 0.2},
                         ),
                     ],
                 )
@@ -143,6 +145,9 @@ class MetricAlignmentTests(unittest.TestCase):
             )
             rows = load_jsonl(output_path)
             self.assertEqual(rows[0]["candidates"][0]["document_id"], "2")
+            self.assertEqual(rows[0]["candidates"][0]["score"], 2.0)
+            self.assertEqual(rows[0]["candidates"][0]["metadata"]["retrieval_score"], 0.2)
+            self.assertEqual(rows[0]["candidates"][0]["metadata"]["rerank_score"], 2.0)
 
 
 if __name__ == "__main__":

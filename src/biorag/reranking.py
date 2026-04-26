@@ -77,6 +77,7 @@ def rerank_contexts(
         ) from error
     model_source = resolve_model_source(
         config.models.reranker.model_name,
+        mode=config.models.reranker.mode,
         checkpoint_path=config.models.reranker.checkpoint_path,
     )
     model = CrossEncoder(model_source, device=device)
@@ -97,7 +98,20 @@ def rerank_contexts(
         )
         rescored = []
         for candidate, score in zip(context.candidates[: config.inference.rerank_top_k], scores):
-            rescored.append(candidate.model_copy(update={"score": float(score)}))
+            rerank_score = float(score)
+            retrieval_score = candidate.metadata.get("retrieval_score", candidate.score)
+            rescored.append(
+                candidate.model_copy(
+                    update={
+                        "score": rerank_score,
+                        "metadata": {
+                            **candidate.metadata,
+                            "retrieval_score": float(retrieval_score),
+                            "rerank_score": rerank_score,
+                        },
+                    }
+                )
+            )
         ranked = sorted(rescored, key=lambda candidate: candidate.score, reverse=True)[
             : config.inference.final_top_k
         ]

@@ -233,11 +233,19 @@ def apply_runtime_overrides(
 def resolve_model_source(
     model_name: str,
     *,
+    mode: str = "pretrained",
     checkpoint_path: str | None = None,
     override_path: str | None = None,
 ) -> str:
     if override_path:
         return override_path
-    if checkpoint_path:
+    normalized_mode = (mode or "pretrained").strip().lower()
+    if normalized_mode == "pretrained":
+        return model_name
+    if normalized_mode == "finetuned":
+        if not checkpoint_path:
+            raise ValueError(
+                "Model mode is 'finetuned' but no checkpoint_path was provided."
+            )
         return checkpoint_path
-    return model_name
+    raise ValueError(f"Unsupported model mode: {mode}")

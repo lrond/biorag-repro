@@ -25,13 +25,15 @@ def write_json(path: str | Path, payload: Any) -> Path:
 
 
 def load_jsonl(path: str | Path) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
+    return list(iter_jsonl(path))
+
+
+def iter_jsonl(path: str | Path) -> Iterable[dict[str, Any]]:
     with Path(path).open("r", encoding="utf-8") as handle:
         for line in handle:
             line = line.strip()
             if line:
-                rows.append(json.loads(line))
-    return rows
+                yield json.loads(line)
 
 
 def dump_jsonl(path: str | Path, rows: Iterable[Any]) -> Path:
