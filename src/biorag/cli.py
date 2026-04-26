@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Callable
 
 from biorag.config import apply_runtime_overrides, load_project_config
+from biorag.doctor import run_doctor
 from biorag.pipeline import (
     build_corpus_stage,
     build_index_stage,
@@ -87,6 +88,30 @@ def _add_quickstart_arguments(subparser: argparse.ArgumentParser) -> None:
     )
 
 
+def _add_doctor_arguments(subparser: argparse.ArgumentParser) -> None:
+    subparser.add_argument(
+        "--profile",
+        choices=sorted(QUICKSTART_PROFILES),
+        default="full",
+        help="Preset to validate when --config is not supplied.",
+    )
+    subparser.add_argument(
+        "--config",
+        default=None,
+        help="Optional custom config to validate.",
+    )
+    subparser.add_argument(
+        "--strict",
+        action="store_true",
+        help="Exit with status 1 when any required check fails.",
+    )
+    _add_runtime_arguments(
+        subparser,
+        input_dir_default="data/raw",
+        output_dir_default="outputs",
+    )
+
+
 def _default_quickstart_config(profile: str) -> Path:
     return _project_root() / QUICKSTART_PROFILES[profile]
 
@@ -98,6 +123,12 @@ def _build_parser() -> argparse.ArgumentParser:
         subparsers.add_parser(
             "quickstart",
             help="Run the most common end-to-end pipeline with project defaults.",
+        )
+    )
+    _add_doctor_arguments(
+        subparsers.add_parser(
+            "doctor",
+            help="Validate local data, dependencies, and device readiness.",
         )
     )
     for command in (
@@ -136,6 +167,9 @@ def _resolve_command_and_config(
     args: argparse.Namespace,
 ) -> tuple[str, str, str | None]:
     if args.command != "quickstart":
+        if args.command == "doctor":
+            config_path = args.config or str(_default_quickstart_config(args.profile))
+            return "doctor", config_path, args.profile
         return args.command, args.config, None
     config_path = args.config or str(_default_quickstart_config(args.profile))
     if args.profile == "baseline":
@@ -159,5 +193,10 @@ def main(argv: list[str] | None = None) -> None:
     configure_torch_runtime(config.runtime)
     set_global_seed(config.runtime.seed)
     save_config_snapshot(config)
+    if command == "doctor":
+        ok = run_doctor(config)
+        if args.strict and not ok:
+            raise SystemExit(1)
+        return
     handler = _dispatch(command)
     handler(config)

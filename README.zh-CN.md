@@ -42,6 +42,12 @@ export NCBI_EMAIL="you@example.com"
 4. 直接运行内置快速入口：
 
 ```bash
+biorag doctor --profile full --device cuda
+```
+
+确认环境和数据没有明显问题后，再启动实验：
+
+```bash
 biorag quickstart --profile baseline --device cuda
 biorag quickstart --profile full --device cuda
 ```
@@ -59,6 +65,10 @@ biorag quickstart \
   --run-name exp-full \
   --device cuda
 ```
+
+更完整的运行说明见 [QUICKSTART.zh-CN.md](QUICKSTART.zh-CN.md)。AutoDL
+操作手册见 [docs/AUTODL.zh-CN.md](docs/AUTODL.zh-CN.md)。论文/报告架构
+对齐说明见 [docs/REPORT_ALIGNMENT.zh-CN.md](docs/REPORT_ALIGNMENT.zh-CN.md)。
 
 ## RTX 5090 / 24GB 显卡说明
 
@@ -88,6 +98,8 @@ biorag quickstart --profile full --device cuda
   运行完整的 baseline 流水线。
 - `biorag quickstart --profile full`
   运行 retriever 训练、检索、重排、生成和评测的完整流程。
+- `biorag doctor --profile full`
+  在长时间实验前检查数据、依赖、设备和常见配置问题。
 - `biorag-report --baseline-report ... --ours-report ... --output-dir ...`
   生成 `Baseline / Ours / Gain` 风格的对照表。
 - `biorag-plot --training-metrics ... --output-dir ...`

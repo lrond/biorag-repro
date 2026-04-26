@@ -43,6 +43,12 @@ export NCBI_EMAIL="you@example.com"
 4. Run one of the built-in entry points:
 
 ```bash
+biorag doctor --profile full --device cuda
+```
+
+Then launch the pipelines:
+
+```bash
 biorag quickstart --profile baseline --device cuda
 biorag quickstart --profile full --device cuda
 ```
@@ -60,6 +66,10 @@ biorag quickstart \
   --run-name exp-full \
   --device cuda
 ```
+
+For a fuller runbook, see [QUICKSTART.md](QUICKSTART.md). For AutoDL, see
+[docs/AUTODL.md](docs/AUTODL.md). For the paper/report mapping, see
+[docs/REPORT_ALIGNMENT.md](docs/REPORT_ALIGNMENT.md).
 
 ## RTX 5090 / 24GB GPU Notes
 
@@ -91,6 +101,9 @@ For most users, these are the only commands you need:
 - `biorag quickstart --profile full`
   Runs retriever training plus the full retrieval, reranking, generation, and
   evaluation flow.
+- `biorag doctor --profile full`
+  Checks local data, required dependencies, device readiness, and common setup
+  problems before you start a long run.
 - `biorag-report --baseline-report ... --ours-report ... --output-dir ...`
   Builds a paper-style `Baseline / Ours / Gain` comparison table.
 - `biorag-plot --training-metrics ... --output-dir ...`

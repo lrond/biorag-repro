@@ -26,3 +26,7 @@ logs/
 artifacts/
 dist/
 build/
+
+# Local report/reference artifacts; keep the reproducible project clean.
+group2.pdf
+report_version/
