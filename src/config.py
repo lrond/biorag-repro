@@ -14,6 +14,7 @@ PUBMED_CACHE_DIR = INTERIM_DIR / "pubmed_cache"
 INDEX_DIR = DATA_DIR / "indexes"
 OUTPUT_DIR = ROOT_DIR / "outputs"
 MODEL_DIR = ROOT_DIR / "models"
+LOG_DIR = ROOT_DIR / "logs"
 
 TRAINING_ZIP = RAW_DIR / "BioASQ-training12b.zip"
 GOLDEN_ZIP = RAW_DIR / "Task12BGoldenEnriched.zip"
@@ -74,5 +75,6 @@ def ensure_dirs() -> None:
         INDEX_DIR,
         OUTPUT_DIR,
         MODEL_DIR,
+        LOG_DIR,
     ]:
         path.mkdir(parents=True, exist_ok=True)

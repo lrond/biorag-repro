@@ -95,26 +95,40 @@ pipeline 在单张云端 GPU 上跑通。
 先跑 baseline：
 
 ```bash
-mkdir -p logs
-python src/run_pipeline.py --profile baseline --device cuda > logs/baseline.log 2>&1
+python src/run_pipeline.py --profile baseline --device cuda
 ```
 
 再跑 full BioRAG：
 
 ```bash
-python src/run_pipeline.py --profile full --device cuda > logs/full.log 2>&1
+python src/run_pipeline.py --profile full --device cuda
 ```
 
-查看进度：
+`run_pipeline.py` 会直接在终端显示：
 
-```bash
-tail -f logs/full.log
-```
+- 当前阶段编号，例如 `[3/11] train_retriever`
+- 每个阶段执行的命令
+- 子脚本实时输出
+- completed/skipped/failed 状态和耗时
+- 最后的 pipeline summary
 
 如果想一次跑完 baseline 和 full：
 
 ```bash
 python src/run_pipeline.py --profile all --device cuda
+```
+
+完整终端输出会自动保存到 `logs/run_pipeline_YYYYMMDD_HHMMSS.log`，不需要手动
+`tail -f`。如果想指定日志路径：
+
+```bash
+python src/run_pipeline.py --profile all --device cuda --log-file logs/run.log
+```
+
+如果只想在终端看阶段摘要，把详细子脚本输出只写入日志：
+
+```bash
+python src/run_pipeline.py --profile all --device cuda --no-stream-output
 ```
 
 默认情况下，`run_pipeline.py` 会自动跳过已经完成的阶段，方便中断后继续：
@@ -263,15 +277,20 @@ export NCBI_EMAIL="you@example.com"
 python src/check_setup.py --device cuda
 mkdir -p logs
 screen -S biorag
-python src/run_pipeline.py --profile all --device cuda > logs/run.log 2>&1
+python src/run_pipeline.py --profile all --device cuda
 ```
 
 退出 screen：按 `Ctrl-A` 再按 `D`。
 
-监控：
+重新进入 screen：
 
 ```bash
-tail -f logs/run.log
+screen -r biorag
+```
+
+终端会直接展示阶段进度；完整日志也会自动保存到 `logs/`。如果需要额外监控机器状态：
+
+```bash
 find data/interim/pubmed_cache -name '*.json' | wc -l
 nvidia-smi
 ```
