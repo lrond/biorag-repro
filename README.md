@@ -30,7 +30,6 @@ data/
   indexes/                     # FAISS/BM25 index
 models/                        # 微调模型
 outputs/                       # 预测、评估、曲线
-presentation/                  # 展示 slides、Beamer 源码和讲稿
 ```
 
 ## 环境安装
