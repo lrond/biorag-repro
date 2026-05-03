@@ -265,38 +265,3 @@ export BIORAG_USE_BM25=0
 
 `BIORAG_USE_BM25=0` 是默认值，使用 FAISS dense retrieval。如果想启用
 BM25 + dense 的混合检索，可以设置为 `1`。
-
-## AutoDL 常用命令
-
-```bash
-cd /root/autodl-tmp
-git clone git@github.com:lrond/biorag-repro.git nlp
-cd nlp
-python -m pip install -r requirements.txt
-export NCBI_EMAIL="you@example.com"
-python src/check_setup.py --device cuda
-mkdir -p logs
-screen -S biorag
-python src/run_pipeline.py --profile all --device cuda
-```
-
-退出 screen：按 `Ctrl-A` 再按 `D`。
-
-重新进入 screen：
-
-```bash
-screen -r biorag
-```
-
-终端会直接展示阶段进度；完整日志也会自动保存到 `logs/`。如果需要额外监控机器状态：
-
-```bash
-find data/interim/pubmed_cache -name '*.json' | wc -l
-nvidia-smi
-```
-
-停止：
-
-```bash
-pkill -f "src/run_pipeline.py"
-```
