@@ -39,7 +39,7 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 ```
 
-AutoDL 或国内网络可以先设置镜像：
+国内网络可以先设置镜像：
 
 ```bash
 python -m pip config set global.index-url https://mirrors.aliyun.com/pypi/simple/
@@ -216,25 +216,6 @@ outputs/run_manifest.json
 
 `run_manifest.json` 会记录本次运行的 profile、device、resume/force 参数和各阶段
 命令，便于复现实验和排查中断点。
-
-## 展示材料
-
-展示文件放在 `presentation/`：
-
-```text
-presentation/slides_en.pdf
-presentation/slides_zh.pdf
-presentation/slides_zh.tex
-presentation/speaker_notes.pdf
-presentation/aligned_training_loss.png
-```
-
-如果需要重新编译中文 Beamer：
-
-```bash
-cd presentation
-xelatex slides_zh.tex
-```
 
 ## 关键超参
 
